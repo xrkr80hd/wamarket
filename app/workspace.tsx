@@ -993,7 +993,6 @@ export default function Workspace() {
                   }
                 />
               </section>
-              <DailyQuote />
               <section className="stats">
                 {[
                   [projects.length, "Active projects"],
@@ -1012,6 +1011,7 @@ export default function Workspace() {
                   </div>
                 ))}
               </section>
+              <DailyQuote />
               <QuickIdeasNotice onGo={() => go("Quick Ideas")} />
               <DayPlanner />
               <ReviewFeedbackFeed onReview={reviewVideo} />

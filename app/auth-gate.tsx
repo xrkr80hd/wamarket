@@ -1,3 +1,4 @@
+import { UserRound, ChevronDown } from "lucide-react";
 import {
   startCloudWorkspace,
   stopCloudWorkspace,
@@ -40,6 +41,25 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     [error, X] = useState(""),
     [message, M] = useState("");
   const currentId = useRef("");
+  const accountMenu = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const close = (event: PointerEvent) => {
+      if (!accountMenu.current?.contains(event.target as Node))
+        accountMenu.current?.removeAttribute("open");
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && accountMenu.current?.open) {
+        accountMenu.current.removeAttribute("open");
+        accountMenu.current.querySelector("summary")?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", escape);
+    };
+  }, []);
   const [cloudStatus, Status] = useState("Connecting…");
   useEffect(() => {
     const fn = (e: any) => Status(e.detail);
@@ -93,32 +113,53 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     return (
       <>
         <div className="auth-session">
-          <span>
-            <b>{account.name}</b> · {roleLabel(account.role)}
+          <span className="session-identity">
+            <b>{account.name}</b>
+            <span className="session-role"> · {roleLabel(account.role)}</span>
           </span>
           <small role="status">{cloudStatus}</small>
-          {account.isAdmin && (
-            <button onClick={() => U(!manage)}>Manage users</button>
-          )}
-          <button
-            onClick={async () => {
-              try {
-                await cloudRequest("presence", { online: false }).catch(
-                  () => {},
-                );
-                await request("logout", {});
-                stopCloudWorkspace();
-                currentId.current = "";
-                sessionStorage.removeItem("wam-cloud-auth");
-                A(null);
-                P("");
-              } catch (e: any) {
-                X(e.message);
-              }
-            }}
-          >
-            Sign out
-          </button>
+          <details className="session-menu" ref={accountMenu}>
+            <summary aria-label="Account options">
+              <UserRound size={16} />
+              <span>Account</span>
+              <ChevronDown size={13} />
+            </summary>
+            <div className="session-menu-panel">
+              <div className="session-menu-identity">
+                <b>{account.name}</b>
+                <small>{roleLabel(account.role)}</small>
+              </div>
+              {account.isAdmin && (
+                <button
+                  onClick={() => {
+                    U(!manage);
+                    accountMenu.current?.removeAttribute("open");
+                  }}
+                >
+                  Manage users
+                </button>
+              )}
+              <button
+                onClick={async () => {
+                  try {
+                    await cloudRequest("presence", { online: false }).catch(
+                      () => {},
+                    );
+                    await request("logout", {});
+                    stopCloudWorkspace();
+                    currentId.current = "";
+                    sessionStorage.removeItem("wam-cloud-auth");
+                    A(null);
+                    P("");
+                  } catch (e: any) {
+                    X(e.message);
+                  }
+                }}
+              >
+                Sign out
+              </button>
+            </div>
+          </details>
           {error && <span role="alert">{error}</span>}
         </div>
         {manage ? (
