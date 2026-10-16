@@ -1,0 +1,37 @@
+// Original motivational copy. Both profiles receive the same quote for each Chicago day.
+export const quotes=[
+'Bring the grit. Make the move. Let the work speak.',
+'You don’t need permission to make today extraordinary.',
+'Big ideas mean nothing until you give them a deadline.',
+'Show up bold. Finish strong. Do it again tomorrow.',
+'Outwork your doubt. Your next breakthrough is waiting.',
+'Be the badass who turns “someday” into “done.”',
+'Your ambition deserves action. Give it some today.',
+'Create something today that yesterday’s you would be proud of.',
+'No perfect timing. Just a clear plan and a hell of a lot of heart.',
+'You can be kind, creative, and an absolute force.',
+'Don’t shrink the vision. Raise the standard.',
+'Progress has a sound: one more thing getting done.',
+'The boldest idea in the room still needs someone to build it.',
+'Let your discipline be louder than your excuses.',
+'You’ve handled hard things. Today gets your best, too.',
+'Own the next move. Momentum follows action.',
+'Build the thing. Send the draft. Take the shot.',
+'You are allowed to be a masterpiece and a work in progress.',
+'Make it matter. Make it yours. Make it happen.',
+'Pressure is real. So is your ability to rise.',
+'Keep the fire. Find the focus. Finish the work.',
+'Small wins stack into a badass story.',
+'Today is a fresh chance to back yourself.',
+'Confidence grows every time you keep a promise to yourself.',
+'Great work starts when you stop negotiating with your potential.',
+'Your energy is valuable. Spend it on the work that matters.',
+'Bring your ideas. Bring your courage. Leave a mark.',
+'Don’t wait to feel unstoppable. Start, and build the proof.',
+'When the plan gets messy, keep the purpose clear.',
+'Lead with heart. Execute with backbone.',
+'Your next chapter is built by the choices you make today.',
+'Turn the volume down on doubt and up on action.'
+];
+export function quoteForDay(date:string){const n=Math.floor(Date.parse(date+'T12:00:00Z')/86400000);return quotes[((n%quotes.length)+quotes.length)%quotes.length]}
+export function chicagoDate(now=new Date()){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(now)}

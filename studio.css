@@ -1,0 +1,93 @@
+/* Studio finish: theme-aware surfaces, navigation and interaction. */
+.workspace-shell {
+  font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --studio-edge: color-mix(in srgb, var(--ui-borderColor) 55%, var(--ui-cardBg));
+  --studio-glow: color-mix(in srgb, var(--ui-primaryBg) 14%, transparent);
+  background:var(--ui-pageBg);
+  background-image:radial-gradient(ellipse at 85% 0%,var(--studio-glow),transparent 45%);
+  -webkit-font-smoothing:antialiased;
+}
+.workspace-shell .content {padding-top:24px;padding-bottom:40px}
+.workspace-shell h1,.workspace-shell h2,.workspace-shell h3 {font-weight:650;letter-spacing:-.025em}
+.workspace-shell .pagehead h1 {font-size:26px;font-weight:700}
+.workspace-shell .sidebar {border-right:1px solid var(--studio-edge);background:linear-gradient(180deg,color-mix(in srgb,var(--ui-primaryBg) 5%,var(--ui-sidebarBg)),var(--ui-sidebarBg) 35%)}
+.workspace-shell .sidebar .brand {border-bottom:1px solid var(--studio-edge);padding-bottom:14px;height:76px;margin-bottom:6px}
+.workspace-shell .brand b {font-size:20px;letter-spacing:-.6px}
+.workspace-shell .brand small {letter-spacing:.12em;font-size:9px}
+.workspace-shell .sidebar nav button {border:1px solid transparent;border-radius:9px;transition:background .16s,border-color .16s,color .16s}
+.workspace-shell .sidebar nav button.selected {background:var(--ui-primaryBg);border-color:color-mix(in srgb,var(--ui-primaryText) 22%,var(--ui-primaryBg));box-shadow:0 3px 14px var(--studio-glow),inset 0 1px 0 #ffffff18;font-weight:650}
+.workspace-shell .sidebar nav button:not(.selected):hover {border-color:var(--studio-edge);background:color-mix(in srgb,var(--ui-sidebarText) 7%,transparent)}
+.workspace-shell .sidebar .profile {border:1px solid var(--studio-edge);background:color-mix(in srgb,var(--ui-sidebarBg) 85%,var(--ui-buttonBg));border-radius:12px}
+.workspace-shell main>header {background:color-mix(in srgb,var(--ui-headerBg) 94%,transparent);backdrop-filter:blur(16px);border-color:var(--studio-edge)}
+.workspace-shell main>header .icon {border:1px solid var(--studio-edge);border-radius:9px;background:transparent}
+.workspace-shell main>header .icon:hover {background:var(--ui-buttonBg);border-color:var(--ui-primaryBg)}
+.workspace-shell .card,.workspace-shell .quick-ideas-notice,.workspace-shell .day-planner,.workspace-shell .shared-review-feed {border-color:var(--studio-edge);border-radius:12px;box-shadow:0 3px 14px #00000008}
+.workspace-shell .card.panel {border-radius:12px}
+.workspace-shell .quote-top {position:relative;border:1px solid var(--studio-edge);border-left:3px solid var(--ui-primaryBg);border-radius:12px;background:linear-gradient(110deg,color-mix(in srgb,var(--ui-primaryBg) 7%,var(--ui-cardBg)),var(--ui-cardBg));padding:20px 24px;margin:16px 0}
+.workspace-shell .quote-top blockquote {font-size:clamp(17px,2vw,24px);line-height:1.45;font-weight:500;letter-spacing:-.025em;margin:10px 0}
+.workspace-shell .quote-top small {font-size:10px;color:var(--ui-mutedText)}
+.workspace-shell .eyebrow {font-size:9px;font-weight:700;letter-spacing:.14em}
+.workspace-shell .stats {border:0;overflow:visible;gap:10px;background:transparent;box-shadow:none}
+.workspace-shell .stats .stat {position:relative;background:var(--ui-cardBg);border:1px solid var(--studio-edge);border-radius:10px;padding:14px 16px;overflow:hidden}
+.workspace-shell .stats .stat::before {content:'';position:absolute;top:14px;right:14px;width:6px;height:6px;border-radius:50%;background:var(--ui-primaryBg);box-shadow:0 0 10px var(--studio-glow)}
+.workspace-shell .stats .stat strong {font-size:30px;font-weight:650;letter-spacing:-1px;font-variant-numeric:tabular-nums;margin-top:6px}
+.workspace-shell .stats .stat small {font-size:11px}
+.workspace-shell .hero {border:1px solid var(--studio-edge);border-radius:14px;background:linear-gradient(120deg,color-mix(in srgb,var(--ui-primaryBg) 10%,var(--ui-cardBg)),var(--ui-cardBg));box-shadow:0 8px 28px #00000012;overflow:hidden}
+.workspace-shell .hero .daily-quote {font-weight:750;letter-spacing:-.045em}
+.workspace-shell .hero>div:first-child button {background:var(--ui-primaryBg);color:var(--ui-primaryText);border-color:var(--ui-primaryBg);box-shadow:0 3px 12px var(--studio-glow)}
+.workspace-shell .hero .hero-art {border-radius:0;overflow:hidden}
+.workspace-shell .planner-toggle,.workspace-shell .priorities-toggle {background-image:linear-gradient(110deg,#ffffff0a,transparent);box-shadow:inset 0 1px 0 #ffffff1a}
+.workspace-shell .priority-section>summary:hover {background:color-mix(in srgb,var(--ui-primaryBg) 6%,var(--ui-cardBg))}
+.workspace-shell .priority-section,.workspace-shell .editor-section {border-color:var(--studio-edge)}
+.workspace-shell .quick-notice-heading>svg {color:var(--ui-linkText)}
+.workspace-shell .checklist-card>.check-card-heading {border-bottom-width:2px;background:linear-gradient(110deg,color-mix(in srgb,var(--ui-primaryBg) 6%,var(--ui-cardBg)),var(--ui-cardBg))}
+.workspace-shell .check-card-heading h2 {font-size:16px}
+.workspace-shell .event-task-heading {background:color-mix(in srgb,var(--ui-cardBg) 80%,var(--ui-buttonBg));border-radius:0;border-bottom:1px solid var(--studio-edge)}
+.workspace-shell .check-card-footer {background:transparent;border-top:1px solid var(--studio-edge);padding:10px 16px}
+.workspace-shell button {transition:background-color .15s,border-color .15s,box-shadow .15s;}
+.workspace-shell button.primary {box-shadow:inset 0 1px 0 #ffffff20,0 3px 9px #00000010}
+.workspace-shell button:not(:disabled):focus-visible,.workspace-shell input:focus-visible,.workspace-shell textarea:focus-visible,.workspace-shell select:focus-visible {outline:2px solid var(--ui-primaryBg);outline-offset:3px}
+.workspace-shell input:not([type=checkbox]):not([type=range]):not([type=color]),.workspace-shell textarea,.workspace-shell select {border-color:var(--studio-edge);border-radius:8px;box-shadow:inset 0 1px 2px #00000006}
+.workspace-shell .ops-toolbar {padding:10px;border:1px solid var(--studio-edge);border-radius:10px;background:var(--ui-cardBg)}
+.workspace-shell .review-player,.workspace-shell .review-empty {border:1px solid var(--studio-edge);border-radius:10px}
+.workspace-shell .review-speed input[type=range] {accent-color:var(--ui-primaryBg)}
+.workspace-shell .ops-calendar {border-color:var(--studio-edge);border-radius:12px;overflow:hidden}
+.workspace-shell .calendar-day {border-color:var(--studio-edge)}
+.workspace-shell .calendar-event {background:color-mix(in srgb,var(--ui-primaryBg) 8%,var(--ui-cardBg));color:var(--ui-bodyText)}
+.workspace-shell .calendar-event:hover {background:var(--ui-primaryBg);color:var(--ui-primaryText)}
+.workspace-shell .branded-folder {box-shadow:0 3px 10px #00000008;transition:border-color .15s,box-shadow .15s}
+.workspace-shell .branded-folder:hover {box-shadow:0 4px 20px color-mix(in srgb,var(--folder-accent,var(--ui-primaryBg)) 15%,transparent)}
+.workspace-shell .toast,.workspace-shell .message-toast {border-radius:10px;box-shadow:0 8px 24px #00000025}
+@media(max-width:800px){.workspace-shell .content{padding:14px}.workspace-shell .pagehead h1{font-size:23px}.workspace-shell .quote-top{padding:16px}.workspace-shell .stats{gap:8px}.workspace-shell .stats .stat{padding:11px 13px}.workspace-shell .stats .stat strong{font-size:26px}.workspace-shell .ops-toolbar{padding:8px}.workspace-shell .sidebar .brand{height:66px}}
+@media(prefers-reduced-motion:reduce){.workspace-shell *{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+/* Shared insets keep headings, rows and footers visually aligned. */
+.workspace-shell .checklist-card{--check-inset:16px;overflow:hidden}
+.workspace-shell .checklist-card .check-card-heading,.workspace-shell .checklist-card .check-card-footer{padding:12px var(--check-inset)}
+.workspace-shell .checklist-card .check-card-row{padding:12px var(--check-inset);gap:12px;align-items:center}
+.workspace-shell .checklist-card .check-task-title{padding:9px 12px!important;border-radius:8px;line-height:1.5;min-width:0}
+.workspace-shell .checklist-card .check-task-title>span{display:block;line-height:1.45;font-size:13px;font-weight:550;overflow-wrap:anywhere}
+.workspace-shell .checklist-card .check-task-title>small{display:block;margin:5px 0 0;line-height:1.5;font-size:11px;color:var(--ui-mutedText)}
+.workspace-shell .checklist-card .event-task-heading{padding:12px var(--check-inset)!important;gap:12px;min-width:0}
+.workspace-shell .event-task-heading>div{min-width:0}.workspace-shell .event-task-heading b{font-size:13px;line-height:1.5;overflow-wrap:anywhere}.workspace-shell .event-task-heading small{font-size:10px;line-height:1.5;margin-top:4px;color:var(--ui-mutedText)}
+.workspace-shell .checklist-card .historical-task-checks{padding:10px var(--check-inset);margin:0}.workspace-shell .historical-task-checks>summary{font-size:11px;line-height:1.5;padding:3px 0}
+.workspace-shell .check-card-heading .event-calendar-link{width:34px;height:34px;min-height:34px;padding:7px;background:transparent;color:var(--ui-bodyText);border:1px solid var(--studio-edge);border-radius:8px}
+.workspace-shell .check-card-heading .event-calendar-link:hover{background:var(--ui-primaryBg);color:var(--ui-primaryText);border-color:var(--ui-primaryBg)}
+@media(max-width:480px){.workspace-shell .checklist-card{--check-inset:12px}.workspace-shell .checklist-card .check-card-row{gap:8px}.workspace-shell .checklist-card .check-task-title{padding:8px 10px!important}.workspace-shell .checklist-card .urgency-badge{max-width:95px;white-space:normal;line-height:1.35}}
+/* Portal keeps graphic settings outside the artwork's clipping boundary. */
+.workspace-shell .hero-settings-overlay{position:fixed;inset:0;z-index:200;background:#0008;backdrop-filter:blur(4px)}
+.workspace-shell .hero-settings-dialog{position:fixed;z-index:201;top:50%;left:50%;right:auto;transform:translate(-50%,-50%);width:320px;max-width:calc(100vw - 28px);max-height:calc(100dvh - 32px);overflow-y:auto;margin:0;padding:18px;background:var(--ui-cardBg);color:var(--ui-bodyText);border:1px solid var(--ui-borderColor);border-radius:14px;box-shadow:0 20px 60px #0005}
+.workspace-shell .hero-settings-dialog .hero-color-header h2{font-size:16px;color:var(--ui-headingText)}
+.workspace-shell .hero-settings-dialog p{color:var(--ui-mutedText);font-size:12px}
+.workspace-shell .hero-settings-dialog .hero-color-modes .chosen,.workspace-shell .hero-settings-dialog .hero-color-save{background:var(--ui-primaryBg);color:var(--ui-primaryText);border-color:var(--ui-primaryBg)}
+.workspace-shell .hero>div:first-child,.workspace-shell .hero>div:first-child h2,.workspace-shell .hero>div:first-child .eyebrow{color:var(--ui-headingText)}
+.workspace-shell .hero>div:first-child .quote-note{color:var(--ui-bodyText)}
+.workspace-shell .dashboard-storegrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.workspace-shell .dashboard-storegrid .store{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:8px;min-width:0;min-height:148px;padding:16px;background:linear-gradient(130deg,color-mix(in srgb,var(--folder-accent) 9%,var(--ui-cardBg)),var(--ui-cardBg));border:1px solid var(--studio-edge);border-top:2px solid var(--folder-accent);border-radius:12px;text-align:left}
+.workspace-shell .dashboard-storegrid .location-badge{width:76px;height:64px;object-fit:contain;flex:none;margin:0}
+.workspace-shell .dashboard-storegrid h3{font-size:13px;line-height:1.4;margin:0;color:var(--ui-headingText);overflow-wrap:anywhere}
+.workspace-shell .dashboard-storegrid small{font-size:10px;margin-top:auto;display:flex;align-items:center;gap:6px;color:var(--ui-mutedText)}
+.workspace-shell .store-pages{display:flex;justify-content:flex-end;gap:8px;margin:10px 0}.workspace-shell .store-pages button{font-size:11px}
+@media(max-width:700px){.workspace-shell .dashboard-storegrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.workspace-shell .dashboard-storegrid .store{padding:12px;min-height:140px}}
+.workspace-shell .sidebar .brand.brand-logo-only{height:124px;min-height:124px;flex-shrink:0;padding:10px 4px 14px;justify-content:center}
+.workspace-shell .brand.brand-logo-only img{display:block;width:100%;max-width:200px;height:100%;max-height:100px;object-fit:contain;border-radius:7px}
+@media(max-width:800px){.workspace-shell .sidebar .brand.brand-logo-only{height:112px;min-height:112px}}

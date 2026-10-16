@@ -1,0 +1,1 @@
+{"framework":"vite","buildCommand":"npm run build","installCommand":"npm install","outputDirectory":"dist","rewrites":[{"source":"/((?!api/|__local/).*)","destination":"/index.html"}]}

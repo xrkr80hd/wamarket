@@ -1,0 +1,2 @@
+import{build}from'esbuild';import{spawnSync}from'node:child_process';
+await build({entryPoints:['checks/workflows.ts'],bundle:true,packages:'external',platform:'node',format:'esm',outfile:'checks/.workflow-bundle.mjs',external:['fake-indexeddb/auto','react','react-dom/server','react-dom'],jsx:'automatic'});const r=spawnSync(process.execPath,['checks/.workflow-bundle.mjs'],{stdio:'inherit'});process.exitCode=r.status;
