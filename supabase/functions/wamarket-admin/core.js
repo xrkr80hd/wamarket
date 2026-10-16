@@ -8,7 +8,7 @@ const publicUser = (u) => ({
   name: u.user_metadata?.name || u.email,
   role:
     u.email?.toLowerCase() === MASTER
-      ? "coordinator"
+      ? "owner"
       : u.app_metadata?.wamarket_role || "viewer",
   isAdmin: u.email?.toLowerCase() === MASTER,
   active: u.app_metadata?.wamarket_active !== false,
@@ -84,7 +84,7 @@ export function createAdminHandler(env, fetcher = fetch) {
           user_metadata: { name: "Travis" },
           app_metadata: {
             wamarket_access: true,
-            wamarket_role: "coordinator",
+            wamarket_role: "owner",
             wamarket_active: true,
           },
         });

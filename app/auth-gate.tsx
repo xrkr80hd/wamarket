@@ -115,7 +115,10 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         <div className="auth-session">
           <span className="session-identity">
             <b>{account.name}</b>
-            <span className="session-role"> · {roleLabel(account.role)}</span>
+            <span className="session-role">
+              {" "}
+              · {roleLabel(account.role, account.isAdmin)}
+            </span>
           </span>
           <small role="status">{cloudStatus}</small>
           <details className="session-menu" ref={accountMenu}>
@@ -127,7 +130,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
             <div className="session-menu-panel">
               <div className="session-menu-identity">
                 <b>{account.name}</b>
-                <small>{roleLabel(account.role)}</small>
+                <small>{roleLabel(account.role, account.isAdmin)}</small>
               </div>
               {account.isAdmin && (
                 <button

@@ -1,12 +1,14 @@
 // Shared identity labels used throughout the signed-in workspace.
-export const roleLabel = (role: string) =>
-  ({
-    owner: "Marketing Manager",
-    coordinator: "Marketing Media Coordinator",
-    executive: "Executive Reviewer",
-    qa: "Q/A",
-    viewer: "Viewer",
-  })[role] || "Team Member";
+export const roleLabel = (role: string, isAdmin = false) =>
+  isAdmin
+    ? "Site Owner · Master Administrator"
+    : {
+        owner: "Marketing Manager",
+        coordinator: "Marketing Media Coordinator",
+        executive: "Executive Reviewer",
+        qa: "Q/A",
+        viewer: "Viewer",
+      }[role] || "Team Member";
 export function assignedTo(r: any, me: any) {
   const matches = (v: any) =>
     typeof v === "string" &&

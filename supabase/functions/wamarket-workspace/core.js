@@ -61,7 +61,7 @@ export function createWorkspaceHandler(env, fetcher = fetch) {
         });
       const role =
         me.email?.toLowerCase() === MASTER
-          ? "coordinator"
+          ? "owner"
           : me.app_metadata?.wamarket_role;
       const endpoint = new URL(req.url).searchParams.get("route") || "state";
       const readable = (r) =>
@@ -94,8 +94,9 @@ export function createWorkspaceHandler(env, fetcher = fetch) {
             email: u.email,
             role:
               u.email?.toLowerCase() === MASTER
-                ? "coordinator"
+                ? "owner"
                 : u.app_metadata?.wamarket_role,
+            isAdmin: u.email?.toLowerCase() === MASTER,
             active: true,
             online: presence.some(
               (p) =>

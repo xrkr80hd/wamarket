@@ -775,7 +775,10 @@ export default function Workspace() {
           <span className="profile-copy">
             <b>{data.member ? data.member.name : user().name}</b>
             <span className="profile-role">
-              {roleLabel(data.member?.role || user().role)}
+              {roleLabel(
+                data.member?.role || user().role,
+                data.member?.isAdmin || user().isAdmin,
+              )}
             </span>
           </span>
           <Settings className="profile-settings" size={15} aria-hidden="true" />

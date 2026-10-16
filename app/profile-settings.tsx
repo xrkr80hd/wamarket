@@ -8,7 +8,7 @@ export default function ProfileSettings() {
   return (
     <section className="card panel">
       <h2>My profile</h2>
-      <p>{roleLabel(user().role)}</p>
+      <p>{roleLabel(user().role, user().isAdmin)}</p>
       <form
         onSubmit={async (e) => {
           e.preventDefault();

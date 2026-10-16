@@ -22,6 +22,8 @@ async function run(route,method='GET',body={},cookie='',origin='https://wamark.f
 }
 assert.equal((await run('me')).code,401);
 assert.equal((await run('me','GET',{},'wam_cloud_session=master-token')).data.user.isAdmin,true);
+assert.equal((await run('me','GET',{},'wam_cloud_session=master-token')).data.user.role,'owner');
+assert.equal((await run('users','GET',{},'wam_cloud_session=master-token')).data.users[0].role,'owner');
 assert.match((await run('login','POST',{email:master.email,password:'test'})).headers['Set-Cookie'],/HttpOnly; Secure; SameSite=Strict/);
 assert.equal((await run('login','POST',{},'','https://evil.example')).code,403);
 assert.equal((await run('users')).code,401);

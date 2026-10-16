@@ -7,7 +7,7 @@ const publicUser = (u) => ({
     (u.email?.toLowerCase() === MASTER ? "Travis" : "Team member"),
   role:
     u.email?.toLowerCase() === MASTER
-      ? "coordinator"
+      ? "owner"
       : u.app_metadata?.wamarket_role || "viewer",
   isAdmin: u.email?.toLowerCase() === MASTER,
   active: u.app_metadata?.wamarket_active !== false,
