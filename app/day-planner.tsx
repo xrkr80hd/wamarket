@@ -1,4 +1,261 @@
-import{useEffect}from'react';import{plannerSyncStatus,useSharedPlannerVersions}from'../lib/planner-sync';
-import{useState}from'react';import{ChevronLeft,ChevronRight,Plus,CalendarDays,Clock3,MoreHorizontal}from'lucide-react';import{Button}from'../components/ui/button';import{Input}from'../components/ui/input';import{useWorkspace,RecordEditor}from'./operations';import{user,people}from'../lib/preview-store';import{chicagoDate}from'../lib/daily-quotes';import{dayPlan,createDayTask,completeDayTask,personName}from'../lib/day-planner';
-export default function DayPlanner(){const s=useWorkspace(),[day,D]=useState(chicagoDate()),[adding,A]=useState(''),[title,T]=useState(''),[time,Time]=useState(''),[error,E]=useState(''),[edit,Edit]=useState<any>(null);const[sync,Sync]=useState(plannerSyncStatus);useEffect(()=>{const changed=()=>Sync(plannerSyncStatus);window.addEventListener('wam-planner-sync',changed);return()=>window.removeEventListener('wam-planner-sync',changed)},[]);const items=dayPlan(day,s),names=['Travis','McKenzie',...new Set(items.map(i=>i.person).filter(p=>p&&!['Travis','McKenzie'].includes(p)))];function shift(n:number){const d=new Date(day+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);D(d.toISOString().slice(0,10));A('')}function itemCard(i:any){return <div className={'day-task '+(i.complete?'is-done':'')} data-select-kind={i.ref.kind} data-select-parent={i.ref.parent} data-select-id={i.ref.id} key={i.id}><label className="day-check"><input type="checkbox" checked={i.complete} disabled={['viewer','executive'].includes(user().role)} aria-label={'Complete '+i.title} onChange={e=>{try{completeDayTask(i,e.target.checked)}catch(e:any){E(e.message)}}}/></label><button className="day-task-main" onClick={()=>{if(i.ref.kind==='record')Edit(s.records.find((r:any)=>r.id===i.ref.id));else Edit(s.records.find((r:any)=>r.id===i.ref.parent))}}><b>{i.title}</b><small>{i.time&&<><Clock3 size={10}/>{i.time} · </>}{i.source}{i.createdBy?' · Added by '+i.createdBy:''}</small></button><span className="day-task-state">{i.complete?'Done':i.status||'Planned'}</span></div>}
-return <details className="day-planner"><summary className="planner-toggle"><CalendarDays size={17}/><b>Day Planner</b><span>{items.filter(i=>!i.complete).length} planned</span><ChevronRight className="planner-toggle-arrow" size={17}/></summary><div className="planner-top"><div><h2>Day Planner</h2><span>What we’re working on, together.</span></div><div className="planner-date"><Button variant="ghost" size="icon-sm" aria-label="Previous day" onClick={()=>shift(-1)}><ChevronLeft size={16}/></Button><Input aria-label="Day Planner date" type="date" value={day} onChange={e=>{if(e.target.value)D(e.target.value);A('')}}/><Button variant="ghost" size="icon-sm" aria-label="Next day" onClick={()=>shift(1)}><ChevronRight size={16}/></Button><Button variant="outline" size="sm" onClick={()=>D(chicagoDate())}>Today</Button></div></div><div className="day-planner-columns">{names.map(name=>{const plan=items.filter(i=>i.person===name),complete=plan.filter(i=>i.complete).length;return <section className="person-day" key={name}><div className="person-day-title"><span className={'person-initial '+(name==='Travis'?'travis':'')}>{name[0]}</span><b>{name}</b><small>{complete}/{plan.length}</small><Button variant="ghost" size="icon-sm" aria-label={'Add to '+name+' day plan'} disabled={user().role==='viewer'||user().role==='executive'} onClick={()=>{A(adding===name?'':name);T('');Time('')}}><Plus size={16}/></Button></div>{plan.map(itemCard)}{!plan.length&&<div className="day-empty">No plans yet for this day.</div>}{adding===name&&<form className="day-quick-add" onSubmit={e=>{e.preventDefault();try{createDayTask({title,date:day,time,owner:name});T('');A('');E('')}catch(e:any){E(e.message)}}}><Input autoFocus required aria-label={'Task for '+name} placeholder="What’s the plan?" value={title} onChange={e=>T(e.target.value)}/><div><Input type="time" aria-label="Optional planned time" value={time} onChange={e=>Time(e.target.value)}/><Button type="button" variant="ghost" size="sm" onClick={()=>A('')}>Cancel</Button><Button className="primary" size="sm">Add plan</Button></div></form>}</section>})}</div>{items.some(i=>!i.person)&&<details className="unassigned-day"><summary>Unassigned calendar items · {items.filter(i=>!i.person).length}</summary>{items.filter(i=>!i.person).map(itemCard)}</details>}<div className="day-planner-foot"><CalendarDays size={13}/><span>Dated tasks and calendar entries appear here automatically.</span><small role="status">{sync}</small>{sync.includes('needs attention')&&<Button size="sm" variant="outline" onClick={()=>useSharedPlannerVersions().catch((e:any)=>E(e.message))}>Reload shared plans / retry</Button>}</div>{error&&<p role="alert">{error}</p>}{edit&&<RecordEditor record={edit} onClose={()=>Edit(null)}/ >}</details>}
+import { useEffect } from "react";
+import {
+  plannerSyncStatus,
+  useSharedPlannerVersions,
+} from "../lib/planner-sync";
+import { useState } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  CalendarDays,
+  Clock3,
+  MoreHorizontal,
+} from "lucide-react";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { useWorkspace, RecordEditor } from "./operations";
+import { user, people } from "../lib/preview-store";
+import { chicagoDate } from "../lib/daily-quotes";
+import {
+  dayPlan,
+  createDayTask,
+  completeDayTask,
+  personName,
+} from "../lib/day-planner";
+export default function DayPlanner() {
+  const s = useWorkspace(),
+    [day, D] = useState(chicagoDate()),
+    [adding, A] = useState(""),
+    [title, T] = useState(""),
+    [time, Time] = useState(""),
+    [error, E] = useState(""),
+    [edit, Edit] = useState<any>(null);
+  const [sync, Sync] = useState(plannerSyncStatus);
+  useEffect(() => {
+    const changed = () => Sync(plannerSyncStatus);
+    window.addEventListener("wam-planner-sync", changed);
+    return () => window.removeEventListener("wam-planner-sync", changed);
+  }, []);
+  const items = dayPlan(day, s),
+    names = [
+      user().name,
+      ...people
+        .filter((p) => p.active !== false && p.id !== user().id)
+        .map((p) => p.name),
+    ];
+  function shift(n: number) {
+    const d = new Date(day + "T12:00:00Z");
+    d.setUTCDate(d.getUTCDate() + n);
+    D(d.toISOString().slice(0, 10));
+    A("");
+  }
+  function itemCard(i: any) {
+    return (
+      <div
+        className={"day-task " + (i.complete ? "is-done" : "")}
+        data-select-kind={i.ref.kind}
+        data-select-parent={i.ref.parent}
+        data-select-id={i.ref.id}
+        key={i.id}
+      >
+        <label className="day-check">
+          <input
+            type="checkbox"
+            checked={i.complete}
+            disabled={["viewer", "executive"].includes(user().role)}
+            aria-label={"Complete " + i.title}
+            onChange={(e) => {
+              try {
+                completeDayTask(i, e.target.checked);
+              } catch (e: any) {
+                E(e.message);
+              }
+            }}
+          />
+        </label>
+        <button
+          className="day-task-main"
+          onClick={() => {
+            if (i.ref.kind === "record")
+              Edit(s.records.find((r: any) => r.id === i.ref.id));
+            else Edit(s.records.find((r: any) => r.id === i.ref.parent));
+          }}
+        >
+          <b>{i.title}</b>
+          <small>
+            {i.time && (
+              <>
+                <Clock3 size={10} />
+                {i.time} ·{" "}
+              </>
+            )}
+            {i.source}
+            {i.createdBy ? " · Added by " + i.createdBy : ""}
+          </small>
+        </button>
+        <span className="day-task-state">
+          {i.complete ? "Done" : i.status || "Planned"}
+        </span>
+      </div>
+    );
+  }
+  return (
+    <details className="day-planner">
+      <summary className="planner-toggle">
+        <CalendarDays size={17} />
+        <b>Day Planner</b>
+        <span>{items.filter((i) => !i.complete).length} planned</span>
+        <ChevronRight className="planner-toggle-arrow" size={17} />
+      </summary>
+      <div className="planner-top">
+        <div>
+          <h2>Day Planner</h2>
+          <span>What we’re working on, together.</span>
+        </div>
+        <div className="planner-date">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Previous day"
+            onClick={() => shift(-1)}
+          >
+            <ChevronLeft size={16} />
+          </Button>
+          <Input
+            aria-label="Day Planner date"
+            type="date"
+            value={day}
+            onChange={(e) => {
+              if (e.target.value) D(e.target.value);
+              A("");
+            }}
+          />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Next day"
+            onClick={() => shift(1)}
+          >
+            <ChevronRight size={16} />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => D(chicagoDate())}>
+            Today
+          </Button>
+        </div>
+      </div>
+      <div className="day-planner-columns">
+        {names.map((name) => {
+          const plan = items.filter((i) => i.person === name),
+            complete = plan.filter((i) => i.complete).length;
+          return (
+            <section className="person-day" key={name}>
+              <div className="person-day-title">
+                <span
+                  className={
+                    "person-initial " + (name === "Travis" ? "travis" : "")
+                  }
+                >
+                  {name[0]}
+                </span>
+                <b>{name}</b>
+                <small>
+                  {complete}/{plan.length}
+                </small>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={"Add to " + name + " day plan"}
+                  disabled={
+                    user().role === "viewer" || user().role === "executive"
+                  }
+                  onClick={() => {
+                    A(adding === name ? "" : name);
+                    T("");
+                    Time("");
+                  }}
+                >
+                  <Plus size={16} />
+                </Button>
+              </div>
+              {plan.map(itemCard)}
+              {!plan.length && (
+                <div className="day-empty">No plans yet for this day.</div>
+              )}
+              {adding === name && (
+                <form
+                  className="day-quick-add"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    try {
+                      createDayTask({ title, date: day, time, owner: name });
+                      T("");
+                      A("");
+                      E("");
+                    } catch (e: any) {
+                      E(e.message);
+                    }
+                  }}
+                >
+                  <Input
+                    autoFocus
+                    required
+                    aria-label={"Task for " + name}
+                    placeholder="What’s the plan?"
+                    value={title}
+                    onChange={(e) => T(e.target.value)}
+                  />
+                  <div>
+                    <Input
+                      type="time"
+                      aria-label="Optional planned time"
+                      value={time}
+                      onChange={(e) => Time(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => A("")}
+                    >
+                      Cancel
+                    </Button>
+                    <Button className="primary" size="sm">
+                      Add plan
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </section>
+          );
+        })}
+      </div>
+      {items.some((i) => !i.person) && (
+        <details className="unassigned-day">
+          <summary>
+            Unassigned calendar items · {items.filter((i) => !i.person).length}
+          </summary>
+          {items.filter((i) => !i.person).map(itemCard)}
+        </details>
+      )}
+      <div className="day-planner-foot">
+        <CalendarDays size={13} />
+        <span>Dated tasks and calendar entries appear here automatically.</span>
+        <small role="status">{sync}</small>
+        {sync.includes("needs attention") && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              useSharedPlannerVersions().catch((e: any) => E(e.message))
+            }
+          >
+            Reload shared plans / retry
+          </Button>
+        )}
+      </div>
+      {error && <p role="alert">{error}</p>}
+      {edit && <RecordEditor record={edit} onClose={() => Edit(null)} />}
+    </details>
+  );
+}

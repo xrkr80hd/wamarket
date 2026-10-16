@@ -1,4 +1,112 @@
-'use client';
-import {useState} from 'react';
-import {Plus,X} from 'lucide-react';
-export default function Brainstorming({records,onSave}:any){const [draft,setDraft]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');const ideas=records.filter((r:any)=>r.kind==='idea'&&!r.archived);return <section><button className="primary" onClick={()=>setDraft({kind:'idea',title:'',notes:'',status:'Ideas'})}><Plus size={16}/> Quick note / idea</button><div className="grid brainstorm-grid">{ideas.map((r:any)=><article className="card hub-link" data-select-id={r.id} key={r.id}><h3>{r.title}</h3><p className="prewrap">{r.notes}</p><div className="hub-actions"><button onClick={()=>setDraft({...r})}>Edit</button><button disabled={busy} onClick={async()=>{if(!confirm('Remove this idea?'))return;setBusy(true);await onSave({action:'delete',id:r.id});setBusy(false)}}>Delete</button></div></article>)}</div>{!ideas.length&&<div className="card empty"><h3>A place for your next idea</h3><p>Capture a quick note, brainstorm, or thought to revisit.</p></div>}{draft&&<div className="overlay"><form className="modal hub-editor" onSubmit={async e=>{e.preventDefault();setBusy(true);if(await onSave({record:{...draft,title:draft.title.trim()||draft.notes.trim().split('\n')[0].slice(0,100)||'Quick note'}}))setDraft(null);else setError('Could not save this note.');setBusy(false)}}><div className="modalhead"><h2>Quick note / idea</h2><button type="button" onClick={()=>setDraft(null)} aria-label="Close note"><X/></button></div><label>Title (optional)<input maxLength={300} value={draft.title} onChange={e=>setDraft({...draft,title:e.target.value})}/></label><label>Your idea<textarea required rows={6} maxLength={10000} value={draft.notes||''} onChange={e=>setDraft({...draft,notes:e.target.value})}/></label>{error&&<p role="alert">{error}</p>}<div className="modalactions"><button type="button" onClick={()=>setDraft(null)}>Cancel</button><button className="primary" disabled={busy}>Save note</button></div></form></div>}</section>}
+"use client";
+import { useState } from "react";
+import { Plus, X } from "lucide-react";
+export default function Brainstorming({ records, onSave }: any) {
+  const [draft, setDraft] = useState<any>(null),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const ideas = records.filter((r: any) => r.kind === "idea" && !r.archived);
+  return (
+    <section>
+      <button
+        className="primary"
+        onClick={() =>
+          setDraft({ kind: "idea", title: "", notes: "", status: "Ideas" })
+        }
+      >
+        <Plus size={16} /> Quick note / idea
+      </button>
+      <div className="grid brainstorm-grid">
+        {ideas.map((r: any) => (
+          <article className="card hub-link" data-select-id={r.id} key={r.id}>
+            <h3>{r.title}</h3>
+            <p className="prewrap">{r.notes}</p>
+            <div className="hub-actions">
+              <button onClick={() => setDraft({ ...r })}>Edit</button>
+              <button
+                disabled={busy}
+                onClick={async () => {
+                  if (!confirm("Remove this idea?")) return;
+                  setBusy(true);
+                  await onSave({ action: "delete", id: r.id });
+                  setBusy(false);
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+      {!ideas.length && (
+        <div className="card empty">
+          <h3>A place for your next idea</h3>
+          <p>Capture a quick note, brainstorm, or thought to revisit.</p>
+        </div>
+      )}
+      {draft && (
+        <div className="overlay">
+          <form
+            className="modal hub-editor"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setBusy(true);
+              if (
+                await onSave({
+                  record: {
+                    ...draft,
+                    title:
+                      draft.title.trim() ||
+                      draft.notes.trim().split("\n")[0].slice(0, 100) ||
+                      "Quick note",
+                  },
+                })
+              )
+                setDraft(null);
+              else setError("Could not save this note.");
+              setBusy(false);
+            }}
+          >
+            <div className="modalhead">
+              <h2>Quick note / idea</h2>
+              <button
+                type="button"
+                onClick={() => setDraft(null)}
+                aria-label="Close note"
+              >
+                <X />
+              </button>
+            </div>
+            <label>
+              Title (optional)
+              <input
+                maxLength={300}
+                value={draft.title}
+                onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+              />
+            </label>
+            <label>
+              Your idea
+              <textarea
+                required
+                rows={6}
+                maxLength={10000}
+                value={draft.notes || ""}
+                onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
+              />
+            </label>
+            {error && <p role="alert">{error}</p>}
+            <div className="modalactions">
+              <button type="button" onClick={() => setDraft(null)}>
+                Cancel
+              </button>
+              <button className="primary" disabled={busy}>
+                Save note
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </section>
+  );
+}

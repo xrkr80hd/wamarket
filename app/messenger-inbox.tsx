@@ -1,11 +1,840 @@
-import{createPortal}from'react-dom';
-import{useState,useEffect,useRef}from'react';import{Button}from'../components/ui/button';import{Input}from'../components/ui/input';import{Textarea}from'../components/ui/textarea';import{Bubble,BubbleContent}from'../components/ui/bubble';import{Dialog}from'radix-ui';import{ArrowLeft,Maximize2,MessageCircle,Paperclip,FolderOpen,Send,Search,X,PenSquare,Users}from'lucide-react';import{useWorkspace,FilePreview}from'./operations';import{ProfileAvatar}from'./local-accounts';import{getState,user,people,mutate,conversation,addAsset,fileURL}from'../lib/preview-store';import{ensureTeamChat,directChat,canAccessAsset,sendChatMedia}from'../lib/chat-media';
-export default function MessengerInbox({active=true,floating=false,onClose,onExpand,onUnread=()=>{}}:any){const s=useWorkspace(),me=user(),[cid,C]=useState('team'),[list,List]=useState(false),[newDM,DM]=useState(false),[query,Q]=useState(''),[search,S]=useState(''),[text,T]=useState(''),[reply,R]=useState<any>(null),[editing,Edit]=useState(''),[files,F]=useState<File[]>([]),[assets,A]=useState<string[]>([]),[picker,Pick]=useState(false),[busy,B]=useState(false),[error,E]=useState('');const fileInput=useRef<HTMLInputElement>(null),end=useRef<HTMLDivElement>(null),uploaded=useRef(new Map<File,string>());const[pop,Pop]=useState<Window|null>(null);useEffect(()=>()=>{pop?.close()},[pop]);const visible=active||floating||!!pop;const allowed=s.conversations.filter((c:any)=>(c.id==='team'||c.type==='Direct')&&c.members.includes(me.id)),current=allowed.find((c:any)=>c.id===cid)||allowed[0];const messages=current?s.messages.filter((m:any)=>!m.archived&&m.conversationId===current.id&&(!search||m.text?.toLowerCase().includes(search.toLowerCase()))):[];const label=(c:any)=>c.id==='team'?'COLLAB chat':c.members.filter((id:string)=>id!==me.id).map((id:string)=>people.find(p=>p.id===id)?.name||'Team member').join(', ');
-useEffect(()=>{ensureTeamChat()},[me.id,people.length]);useEffect(()=>{onUnread(s.messages.filter((m:any)=>!m.archived&&allowed.some((c:any)=>c.id===m.conversationId)&&m.sender_id!==me.id&&m.created_at>(s.read[me.id+m.conversationId]||'')).length)},[s.messages.length,me.id,current?.id,s.read[me.id+(current?.id||'')]]);useEffect(()=>{if(visible&&current&&!list){const last=s.messages.filter((m:any)=>m.conversationId===current.id&&!m.archived).at(-1)?.created_at;if(last&&s.read[me.id+current.id]!==last)mutate(s=>s.read[me.id+current.id]=last)}end.current?.scrollIntoView({block:'nearest'})},[visible,current?.id,s.messages.length,list]);if(!visible)return null;
-async function popOut(){try{if(pop&&!pop.closed){pop.focus();return}const api=(window as any).documentPictureInPicture;const w:Window=api?await api.requestWindow({width:460,height:650}):window.open('','wam-collab-chat','popup=yes,width=460,height=650');if(!w)throw Error('Allow pop-ups to open COLLAB chat');w.document.title='COLLAB chat';w.document.body.style.margin='0';document.querySelectorAll('style,link[rel="stylesheet"]').forEach(el=>w.document.head.appendChild(el.cloneNode(true)));const host=w.document.createElement('div');host.id='collab-popout';const app=(pop?.document||document).querySelector('.app') as HTMLElement;host.className=(app?.className||'app')+' chat-window-root';if(app)host.setAttribute('style',app.getAttribute('style')||'');w.document.body.replaceChildren(host);w.addEventListener('pagehide',()=>Pop(null),{once:true});Pop(w);if(!api)E('Separate chat window opened. Always-on-top is available in browsers supporting Picture-in-Picture.')}catch(e:any){E(e.message)}}
-function open(id:string){C(id);List(false);R(null);Edit('');T('');F([]);A([]);E('');DM(false)}
-async function send(e:any){e.preventDefault();if(!current)return;B(true);E('');const failed:File[]=[];let failures:string[]=[];try{conversation(current.id);if(editing){if(!text.trim())throw Error('Enter message text');mutate(s=>{const m=s.messages.find((m:any)=>m.id===editing&&m.conversationId===current.id&&m.sender_id===me.id);if(!m)throw Error('Only the sender can edit this message');m.text=text;m.edited=true});Edit('');T('');return}const ids=[...assets];for(const file of files){try{let id=uploaded.current.get(file);if(!id){id=await addAsset(file,{privateConversation:current.id,chatUploadPending:true,uploadedBy:me.name});uploaded.current.set(file,id)}ids.push(id)}catch(e:any){failed.push(file);failures.push(file.name+': '+e.message)}}if(!text.trim()&&!ids.length)throw Error(failures.join(' · ')||'Write a message or attach media');sendChatMedia(current.id,{text,assetIds:ids,replyTo:reply?.id});T('');F(failed);A([]);R(null);if(failures.length)E('Message sent with available files. Retry: '+failures.join(' · '))}catch(e:any){E(e.message)}finally{B(false)}}
-const conversationList=<div className="inbox-conversations"><div className="inbox-list-title"><h2>Chats</h2><Button variant="ghost" size="icon" aria-label="New direct message" onClick={()=>{DM(!newDM);Q('')}}><PenSquare size={18}/></Button></div><div className="inbox-search"><Search size={15}/><Input aria-label="Search people and chats" placeholder={newDM?'Choose a person…':'Search chats…'} value={query} onChange={e=>Q(e.target.value)}/></div>{newDM?<><small className="inbox-hint">New direct message</small>{people.filter(p=>p.id!==me.id&&p.active!==false&&p.name.toLowerCase().includes(query.toLowerCase())).map(p=><Button variant="ghost" className="chat-row" key={p.id} onClick={()=>{try{open(directChat(p.id))}catch(e:any){E(e.message)}}}><ProfileAvatar id={p.id}/><div><b>{p.name}</b><small>{p.role==='executive'?'Executive reviewer':p.role==='owner'?'Marketing lead':'Team member'}</small></div></Button>)}</>:allowed.filter((c:any)=>label(c).toLowerCase().includes(query.toLowerCase())).sort((a:any,b:any)=>a.id==='team'?-1:b.id==='team'?1:0).map((c:any)=>{const last=s.messages.filter((m:any)=>m.conversationId===c.id&&!m.archived).at(-1),unread=s.messages.filter((m:any)=>m.conversationId===c.id&&!m.archived&&m.sender_id!==me.id&&m.created_at>(s.read[me.id+c.id]||'')).length;return <Button variant="ghost" className={'chat-row '+(current?.id===c.id?'current':'')} key={c.id} onClick={()=>open(c.id)}>{c.id==='team'?<span className="team-chat-avatar"><Users size={22}/></span>:<ProfileAvatar id={c.members.find((id:string)=>id!==me.id)}/>}<div><b>{label(c)}</b><small>{last?.text||((last?.attachments?.length||last?.attachment_id)?'Shared media':c.id==='team'?'One shared team conversation':'Start a conversation')}</small></div>{unread>0&&<span className="chat-unread">{unread}</span>}</Button>})}<small className="inbox-hint">Local preview · messages stay on this device</small></div>;
-const panel=<section className={'team-messenger inbox-messenger '+(floating&&!pop?'messenger-popout':'messenger-page')+(list?' show-chat-list':'')} aria-label="Messenger"><div className="inbox-top"><div><MessageCircle size={18}/><b>COLLAB chat</b></div><div><Button variant="ghost" size="icon" aria-label="Pop out COLLAB chat" title="Pop out chat" onClick={popOut}><Maximize2 size={17}/></Button>{onClose&&<Button variant="ghost" size="icon" aria-label="Close Messenger" onClick={()=>{if(pop){pop.close();Pop(null)}else onClose?.()}}><X size={18}/></Button>}</div></div><div className="inbox-layout">{conversationList}<div className="inbox-thread">{current?<><div className="inbox-thread-head"><Button variant="ghost" size="icon" className="chat-back" aria-label="Show chats" onClick={()=>List(true)}><ArrowLeft size={19}/></Button>{current.id==='team'?<span className="team-chat-avatar"><Users size={19}/></span>:<ProfileAvatar id={current.members.find((id:string)=>id!==me.id)}/>}<div><h3>{label(current)}</h3><small>{current.id==='team'?current.members.length+' team members':'Private conversation'}</small></div><Button variant="ghost" size="icon" aria-label="New direct message" onClick={()=>{List(true);DM(true)}}><PenSquare size={17}/></Button></div><div className="inbox-thread-search"><Input aria-label="Search messages" placeholder="Search this chat…" value={search} onChange={e=>S(e.target.value)}/></div><div className="inbox-messages" role="log" aria-label="Messages">{messages.map((m:any)=>{const ids=m.attachments||[m.attachment_id].filter(Boolean);return <article className={'message-row '+(m.sender_id===me.id?'mine':'')} data-select-kind="message" data-select-id={m.id} key={m.id}><small>{m.sender_name} · {new Date(m.created_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}{m.edited?' · edited':''}</small>{m.replyTo&&<small>↳ {s.messages.find((x:any)=>x.id===m.replyTo&&x.conversationId===current.id)?.text||'Media reply'}</small>}<Bubble variant="secondary" className="suite-bubble"><BubbleContent>{m.text&&<p>{m.text}</p>}{ids.map((id:string)=>{const a=s.records.find((r:any)=>r.id===id);return <div className="chat-attachment" key={id}>{a&&<FilePreview id={id} type={a.type}/>}<Button variant="ghost" onClick={async()=>{try{const u=await fileURL(id);if(u)window.open(u,'_blank');else E('Original file is unavailable')}catch(e:any){E(e.message)}}}>{a?.title||'Open attachment'}</Button><small>Saved in Asset Room · {label(current)}</small></div>})}{m.annotation&&<Button variant="ghost" onClick={()=>{sessionStorage.setItem('wam-seek',JSON.stringify(m.annotation));window.dispatchEvent(new CustomEvent('wam-open-review',{detail:m.annotation}));onClose?.()}}>▶ Open video at marked time</Button>}</BubbleContent></Bubble><div className="inbox-message-actions"><Button variant="ghost" onClick={()=>R(m)}>Reply</Button>{m.sender_id===me.id&&<><Button variant="ghost" onClick={()=>{Edit(m.id);T(m.text||'')}}>Edit</Button><Button variant="ghost" onClick={()=>{if(confirm('Archive this message? Media originals will be preserved.'))mutate(s=>s.messages.find((x:any)=>x.id===m.id).archived=true)}}>Archive</Button></>}</div></article>})}{!messages.length&&<div className="inbox-empty"><MessageCircle size={32}/><h3>{label(current)}</h3><p>Start with a message, photo, video or a file from the Asset Room.</p></div>}<div ref={end}/></div>{error&&<div className="inbox-error" role="alert">{error}</div>}<form className="inbox-compose" onSubmit={send}>{reply&&<div className="compose-context"><small>Reply to {reply.sender_name}: {reply.text||'Media'}</small><Button type="button" variant="ghost" size="icon" aria-label="Cancel reply" onClick={()=>R(null)}><X size={14}/></Button></div>}{editing&&<div className="compose-context"><small>Editing your message</small><Button type="button" variant="ghost" onClick={()=>{Edit('');T('')}}>Cancel</Button></div>}{(files.length>0||assets.length>0)&&<div className="chat-pending-files">{files.map((f,i)=><div key={'file'+i}><span>{f.name}</span><Button type="button" variant="ghost" size="icon" aria-label={'Remove '+f.name} onClick={()=>F(files.filter((_,j)=>i!==j))}><X size={13}/></Button></div>)}{assets.map(id=><div key={id}><span>{s.records.find((r:any)=>r.id===id)?.title}</span><Button type="button" variant="ghost" size="icon" aria-label="Remove selected asset" onClick={()=>A(assets.filter(x=>x!==id))}><X size={13}/></Button></div>)}</div>}<div className="compose-input-row"><Textarea aria-label="Message" placeholder="Message…" rows={2} maxLength={4000} value={text} onChange={e=>T(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();if(text.trim()||files.length||assets.length)e.currentTarget.form?.requestSubmit()}}}/><Button type="submit" className="primary chat-send" size="icon" aria-label={editing?'Save edited message':'Send message'} disabled={busy||(!text.trim()&&!files.length&&!assets.length)}><Send size={18}/></Button></div><div className="compose-tools"><input ref={fileInput} type="file" multiple hidden onChange={e=>{F([...files,...Array.from(e.target.files||[])]);e.target.value=''}}/><Button type="button" variant="ghost" disabled={busy||!!editing} onClick={()=>fileInput.current?.click()}><Paperclip size={16}/> Upload media</Button><Button type="button" variant="ghost" disabled={busy||!!editing} onClick={()=>Pick(true)}><FolderOpen size={16}/> Asset Room</Button><small>{busy?'Saving…':'Enter to send · Shift+Enter for a new line'}</small></div></form></>:<div className="inbox-empty"><p>Choose a chat.</p></div>}</div></div><Dialog.Root open={picker} onOpenChange={Pick}><Dialog.Portal container={typeof document!=='undefined'?document.querySelector('.app') as HTMLElement:undefined}><Dialog.Overlay className="crop-overlay"/><Dialog.Content className="crop-dialog chat-asset-dialog"><div className="crop-heading"><div><Dialog.Title>Send from Asset Room</Dialog.Title><Dialog.Description>Select existing files. Originals are reused and linked to this chat.</Dialog.Description></div><Dialog.Close asChild><Button variant="ghost" size="icon" aria-label="Close asset picker"><X size={18}/></Button></Dialog.Close></div><AssetPicker selected={assets} onChange={A}/><div className="crop-actions"><Dialog.Close asChild><Button>Done · {assets.length} selected</Button></Dialog.Close></div></Dialog.Content></Dialog.Portal></Dialog.Root></section>;return pop&&!pop.closed?createPortal(panel,pop.document.getElementById('collab-popout')!):panel}
-function AssetPicker({selected,onChange}:any){const s=useWorkspace(),[q,Q]=useState('');const assets=s.records.filter((a:any)=>a.kind==='asset'&&!a.archived&&canAccessAsset(a,s)&&a.title.toLowerCase().includes(q.toLowerCase()));return <><Input aria-label="Search Asset Room files" placeholder="Search files…" value={q} onChange={e=>Q(e.target.value)}/><div className="chat-asset-picker">{assets.map((a:any)=><label key={a.id}><input type="checkbox" checked={selected.includes(a.id)} onChange={e=>onChange(e.target.checked?[...selected,a.id]:selected.filter((id:string)=>id!==a.id))}/><div><b>{a.title}</b><small>{a.type} · {a.chatOrigins?.length?'Previously shared in chat':'Asset Room'}</small></div></label>)}{!assets.length&&<p>No matching files. Use Upload media to add files from your device.</p>}</div></>}
-
+import { createPortal } from "react-dom";
+import { useState, useEffect, useRef } from "react";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
+import { Bubble, BubbleContent } from "../components/ui/bubble";
+import { Dialog } from "radix-ui";
+import {
+  ArrowLeft,
+  Maximize2,
+  MessageCircle,
+  Paperclip,
+  FolderOpen,
+  Send,
+  Search,
+  X,
+  PenSquare,
+  Users,
+} from "lucide-react";
+import { useWorkspace, FilePreview } from "./operations";
+import { ProfileAvatar } from "./local-accounts";
+import {
+  getState,
+  user,
+  people,
+  mutate,
+  conversation,
+  addAsset,
+  fileURL,
+} from "../lib/preview-store";
+import {
+  ensureTeamChat,
+  directChat,
+  canAccessAsset,
+  sendChatMedia,
+} from "../lib/chat-media";
+export default function MessengerInbox({
+  active = true,
+  floating = false,
+  onClose,
+  onExpand,
+  onUnread = () => {},
+}: any) {
+  const s = useWorkspace(),
+    me = user(),
+    [cid, C] = useState("team"),
+    [list, List] = useState(false),
+    [newDM, DM] = useState(false),
+    [query, Q] = useState(""),
+    [search, S] = useState(""),
+    [text, T] = useState(""),
+    [reply, R] = useState<any>(null),
+    [editing, Edit] = useState(""),
+    [files, F] = useState<File[]>([]),
+    [assets, A] = useState<string[]>([]),
+    [picker, Pick] = useState(false),
+    [busy, B] = useState(false),
+    [error, E] = useState("");
+  const fileInput = useRef<HTMLInputElement>(null),
+    end = useRef<HTMLDivElement>(null),
+    uploaded = useRef(new Map<File, string>());
+  const [pop, Pop] = useState<Window | null>(null);
+  useEffect(
+    () => () => {
+      pop?.close();
+    },
+    [pop],
+  );
+  const visible = active || floating || !!pop;
+  const allowed = s.conversations.filter(
+      (c: any) =>
+        (c.id === "team" || c.type === "Direct") && c.members.includes(me.id),
+    ),
+    current = allowed.find((c: any) => c.id === cid) || allowed[0];
+  const messages = current
+    ? s.messages.filter(
+        (m: any) =>
+          !m.archived &&
+          m.conversationId === current.id &&
+          (!search || m.text?.toLowerCase().includes(search.toLowerCase())),
+      )
+    : [];
+  const label = (c: any) =>
+    c.id === "team"
+      ? "COLLAB chat"
+      : c.members
+          .filter((id: string) => id !== me.id)
+          .map(
+            (id: string) =>
+              people.find((p) => p.id === id)?.name || "Team member",
+          )
+          .join(", ");
+  useEffect(() => {
+    ensureTeamChat();
+  }, [me.id, people.length]);
+  useEffect(() => {
+    onUnread(
+      s.messages.filter(
+        (m: any) =>
+          !m.archived &&
+          allowed.some((c: any) => c.id === m.conversationId) &&
+          m.sender_id !== me.id &&
+          m.created_at > (s.read[me.id + m.conversationId] || ""),
+      ).length,
+    );
+  }, [
+    s.messages.length,
+    me.id,
+    current?.id,
+    s.read[me.id + (current?.id || "")],
+  ]);
+  useEffect(() => {
+    if (visible && current && !list) {
+      const last = s.messages
+        .filter((m: any) => m.conversationId === current.id && !m.archived)
+        .at(-1)?.created_at;
+      if (last && s.read[me.id + current.id] !== last)
+        mutate((s) => (s.read[me.id + current.id] = last));
+    }
+    end.current?.scrollIntoView({ block: "nearest" });
+  }, [visible, current?.id, s.messages.length, list]);
+  if (!visible) return null;
+  async function popOut() {
+    try {
+      if (pop && !pop.closed) {
+        pop.focus();
+        return;
+      }
+      const api = (window as any).documentPictureInPicture;
+      const w: Window = api
+        ? await api.requestWindow({ width: 460, height: 650 })
+        : window.open("", "wam-collab-chat", "popup=yes,width=460,height=650");
+      if (!w) throw Error("Allow pop-ups to open COLLAB chat");
+      w.document.title = "COLLAB chat";
+      w.document.body.style.margin = "0";
+      document
+        .querySelectorAll('style,link[rel="stylesheet"]')
+        .forEach((el) => w.document.head.appendChild(el.cloneNode(true)));
+      const host = w.document.createElement("div");
+      host.id = "collab-popout";
+      const app = (pop?.document || document).querySelector(
+        ".app",
+      ) as HTMLElement;
+      host.className = (app?.className || "app") + " chat-window-root";
+      if (app) host.setAttribute("style", app.getAttribute("style") || "");
+      w.document.body.replaceChildren(host);
+      w.addEventListener("pagehide", () => Pop(null), { once: true });
+      Pop(w);
+      if (!api)
+        E(
+          "Separate chat window opened. Always-on-top is available in browsers supporting Picture-in-Picture.",
+        );
+    } catch (e: any) {
+      E(e.message);
+    }
+  }
+  function open(id: string) {
+    C(id);
+    List(false);
+    R(null);
+    Edit("");
+    T("");
+    F([]);
+    A([]);
+    E("");
+    DM(false);
+  }
+  async function send(e: any) {
+    e.preventDefault();
+    if (!current) return;
+    B(true);
+    E("");
+    const failed: File[] = [];
+    let failures: string[] = [];
+    try {
+      conversation(current.id);
+      if (editing) {
+        if (!text.trim()) throw Error("Enter message text");
+        mutate((s) => {
+          const m = s.messages.find(
+            (m: any) =>
+              m.id === editing &&
+              m.conversationId === current.id &&
+              m.sender_id === me.id,
+          );
+          if (!m) throw Error("Only the sender can edit this message");
+          m.text = text;
+          m.edited = true;
+        });
+        Edit("");
+        T("");
+        return;
+      }
+      const ids = [...assets];
+      for (const file of files) {
+        try {
+          let id = uploaded.current.get(file);
+          if (!id) {
+            id = await addAsset(file, {
+              privateConversation: current.id,
+              chatUploadPending: true,
+              uploadedBy: me.name,
+            });
+            uploaded.current.set(file, id);
+          }
+          ids.push(id);
+        } catch (e: any) {
+          failed.push(file);
+          failures.push(file.name + ": " + e.message);
+        }
+      }
+      if (!text.trim() && !ids.length)
+        throw Error(failures.join(" · ") || "Write a message or attach media");
+      sendChatMedia(current.id, { text, assetIds: ids, replyTo: reply?.id });
+      T("");
+      F(failed);
+      A([]);
+      R(null);
+      if (failures.length)
+        E("Message sent with available files. Retry: " + failures.join(" · "));
+    } catch (e: any) {
+      E(e.message);
+    } finally {
+      B(false);
+    }
+  }
+  const conversationList = (
+    <div className="inbox-conversations">
+      <div className="inbox-list-title">
+        <h2>Chats</h2>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="New direct message"
+          onClick={() => {
+            DM(!newDM);
+            Q("");
+          }}
+        >
+          <PenSquare size={18} />
+        </Button>
+      </div>
+      <div className="inbox-search">
+        <Search size={15} />
+        <Input
+          aria-label="Search people and chats"
+          placeholder={newDM ? "Choose a person…" : "Search chats…"}
+          value={query}
+          onChange={(e) => Q(e.target.value)}
+        />
+      </div>
+      {newDM ? (
+        <>
+          <small className="inbox-hint">New direct message</small>
+          {people
+            .filter(
+              (p) =>
+                p.id !== me.id &&
+                p.active !== false &&
+                p.name.toLowerCase().includes(query.toLowerCase()),
+            )
+            .map((p) => (
+              <Button
+                variant="ghost"
+                className="chat-row"
+                key={p.id}
+                onClick={() => {
+                  try {
+                    open(directChat(p.id));
+                  } catch (e: any) {
+                    E(e.message);
+                  }
+                }}
+              >
+                <ProfileAvatar id={p.id} />
+                <div>
+                  <b>
+                    {p.name}{" "}
+                    <span
+                      className={
+                        p.online ? "presence-dot online" : "presence-dot"
+                      }
+                      aria-label={p.online ? "Online" : "Offline"}
+                    />
+                  </b>
+                  <small>
+                    {p.role === "executive"
+                      ? "Executive reviewer"
+                      : p.role === "owner"
+                        ? "Marketing lead"
+                        : "Team member"}
+                  </small>
+                </div>
+              </Button>
+            ))}
+        </>
+      ) : (
+        allowed
+          .filter((c: any) =>
+            label(c).toLowerCase().includes(query.toLowerCase()),
+          )
+          .sort((a: any, b: any) =>
+            a.id === "team" ? -1 : b.id === "team" ? 1 : 0,
+          )
+          .map((c: any) => {
+            const last = s.messages
+                .filter((m: any) => m.conversationId === c.id && !m.archived)
+                .at(-1),
+              unread = s.messages.filter(
+                (m: any) =>
+                  m.conversationId === c.id &&
+                  !m.archived &&
+                  m.sender_id !== me.id &&
+                  m.created_at > (s.read[me.id + c.id] || ""),
+              ).length;
+            return (
+              <Button
+                variant="ghost"
+                className={
+                  "chat-row " + (current?.id === c.id ? "current" : "")
+                }
+                key={c.id}
+                onClick={() => open(c.id)}
+              >
+                {c.id === "team" ? (
+                  <span className="team-chat-avatar">
+                    <Users size={22} />
+                  </span>
+                ) : (
+                  <ProfileAvatar
+                    id={c.members.find((id: string) => id !== me.id)}
+                  />
+                )}
+                <div>
+                  <b>{label(c)}</b>
+                  <small>
+                    {last?.text ||
+                      (last?.attachments?.length || last?.attachment_id
+                        ? "Shared media"
+                        : c.id === "team"
+                          ? "One shared team conversation"
+                          : "Start a conversation")}
+                  </small>
+                </div>
+                {unread > 0 && <span className="chat-unread">{unread}</span>}
+              </Button>
+            );
+          })
+      )}
+      <small className="inbox-hint">
+        Local preview · messages stay on this device
+      </small>
+    </div>
+  );
+  const panel = (
+    <section
+      className={
+        "team-messenger inbox-messenger " +
+        (floating && !pop ? "messenger-popout" : "messenger-page") +
+        (list ? " show-chat-list" : "")
+      }
+      aria-label="Messenger"
+    >
+      <div className="inbox-top">
+        <div>
+          <MessageCircle size={18} />
+          <b>COLLAB chat</b>
+        </div>
+        <div>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Pop out COLLAB chat"
+            title="Pop out chat"
+            onClick={popOut}
+          >
+            <Maximize2 size={17} />
+          </Button>
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Close Messenger"
+              onClick={() => {
+                if (pop) {
+                  pop.close();
+                  Pop(null);
+                } else onClose?.();
+              }}
+            >
+              <X size={18} />
+            </Button>
+          )}
+        </div>
+      </div>
+      <div className="inbox-layout">
+        {conversationList}
+        <div className="inbox-thread">
+          {current ? (
+            <>
+              <div className="inbox-thread-head">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="chat-back"
+                  aria-label="Show chats"
+                  onClick={() => List(true)}
+                >
+                  <ArrowLeft size={19} />
+                </Button>
+                {current.id === "team" ? (
+                  <span className="team-chat-avatar">
+                    <Users size={19} />
+                  </span>
+                ) : (
+                  <ProfileAvatar
+                    id={current.members.find((id: string) => id !== me.id)}
+                  />
+                )}
+                <div>
+                  <h3>{label(current)}</h3>
+                  <small>
+                    {people
+                      .filter((p) => p.id !== me.id && p.online)
+                      .map((p) => p.name)
+                      .join(", ") || "No teammates online"}
+                    {people.some((p) => p.id !== me.id && p.online)
+                      ? " online"
+                      : ""}
+                  </small>
+                  <small>
+                    {current.id === "team"
+                      ? current.members.length +
+                        " team members · " +
+                        people
+                          .filter((p) => p.id !== me.id && p.online)
+                          .map((p) => p.name)
+                          .join(", ") +
+                        (people.some((p) => p.id !== me.id && p.online)
+                          ? " online"
+                          : "Nobody else online")
+                      : "Private conversation"}
+                  </small>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="New direct message"
+                  onClick={() => {
+                    List(true);
+                    DM(true);
+                  }}
+                >
+                  <PenSquare size={17} />
+                </Button>
+              </div>
+              <div className="inbox-thread-search">
+                <Input
+                  aria-label="Search messages"
+                  placeholder="Search this chat…"
+                  value={search}
+                  onChange={(e) => S(e.target.value)}
+                />
+              </div>
+              <div className="inbox-messages" role="log" aria-label="Messages">
+                {messages.map((m: any) => {
+                  const ids =
+                    m.attachments || [m.attachment_id].filter(Boolean);
+                  return (
+                    <article
+                      className={
+                        "message-row " + (m.sender_id === me.id ? "mine" : "")
+                      }
+                      key={m.id}
+                    >
+                      <small>
+                        {m.sender_name} ·{" "}
+                        {new Date(m.created_at).toLocaleTimeString("en-US", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                        {m.edited ? " · edited" : ""}
+                      </small>
+                      {m.replyTo && (
+                        <small>
+                          ↳{" "}
+                          {s.messages.find(
+                            (x: any) =>
+                              x.id === m.replyTo &&
+                              x.conversationId === current.id,
+                          )?.text || "Media reply"}
+                        </small>
+                      )}
+                      <Bubble variant="secondary" className="suite-bubble">
+                        <BubbleContent>
+                          {m.text && <p>{m.text}</p>}
+                          {ids.map((id: string) => {
+                            const a = s.records.find((r: any) => r.id === id);
+                            return (
+                              <div className="chat-attachment" key={id}>
+                                {a && <FilePreview id={id} type={a.type} />}
+                                <Button
+                                  variant="ghost"
+                                  onClick={async () => {
+                                    try {
+                                      const u = await fileURL(id);
+                                      if (u) window.open(u, "_blank");
+                                      else E("Original file is unavailable");
+                                    } catch (e: any) {
+                                      E(e.message);
+                                    }
+                                  }}
+                                >
+                                  {a?.title || "Open attachment"}
+                                </Button>
+                                <small>
+                                  Saved in Asset Room · {label(current)}
+                                </small>
+                              </div>
+                            );
+                          })}
+                          {m.annotation && (
+                            <Button
+                              variant="ghost"
+                              onClick={() => {
+                                sessionStorage.setItem(
+                                  "wam-seek",
+                                  JSON.stringify(m.annotation),
+                                );
+                                window.dispatchEvent(
+                                  new CustomEvent("wam-open-review", {
+                                    detail: m.annotation,
+                                  }),
+                                );
+                                onClose?.();
+                              }}
+                            >
+                              ▶ Open video at marked time
+                            </Button>
+                          )}
+                        </BubbleContent>
+                      </Bubble>
+                      <div className="inbox-message-actions">
+                        <Button variant="ghost" onClick={() => R(m)}>
+                          Reply
+                        </Button>
+                        {m.sender_id === me.id && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              onClick={() => {
+                                Edit(m.id);
+                                T(m.text || "");
+                              }}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              onClick={() => {
+                                if (confirm("Delete this message?"))
+                                  mutate(
+                                    (s) =>
+                                      (s.messages.find(
+                                        (x: any) => x.id === m.id,
+                                      ).archived = true),
+                                  );
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+                {!messages.length && (
+                  <div className="inbox-empty">
+                    <MessageCircle size={32} />
+                    <h3>{label(current)}</h3>
+                    <small>
+                      {people
+                        .filter((p) => p.id !== me.id && p.online)
+                        .map((p) => p.name)
+                        .join(", ") || "No teammates online"}
+                      {people.some((p) => p.id !== me.id && p.online)
+                        ? " online"
+                        : ""}
+                    </small>
+                    <p>
+                      Start with a message, photo, video or a file from the
+                      Asset Room.
+                    </p>
+                  </div>
+                )}
+                <div ref={end} />
+              </div>
+              {error && (
+                <div className="inbox-error" role="alert">
+                  {error}
+                </div>
+              )}
+              <form className="inbox-compose" onSubmit={send}>
+                {reply && (
+                  <div className="compose-context">
+                    <small>
+                      Reply to {reply.sender_name}: {reply.text || "Media"}
+                    </small>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Cancel reply"
+                      onClick={() => R(null)}
+                    >
+                      <X size={14} />
+                    </Button>
+                  </div>
+                )}
+                {editing && (
+                  <div className="compose-context">
+                    <small>Editing your message</small>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        Edit("");
+                        T("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+                {(files.length > 0 || assets.length > 0) && (
+                  <div className="chat-pending-files">
+                    {files.map((f, i) => (
+                      <div key={"file" + i}>
+                        <span>{f.name}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={"Remove " + f.name}
+                          onClick={() => F(files.filter((_, j) => i !== j))}
+                        >
+                          <X size={13} />
+                        </Button>
+                      </div>
+                    ))}
+                    {assets.map((id) => (
+                      <div key={id}>
+                        <span>
+                          {s.records.find((r: any) => r.id === id)?.title}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Remove selected asset"
+                          onClick={() => A(assets.filter((x) => x !== id))}
+                        >
+                          <X size={13} />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="compose-input-row">
+                  <Textarea
+                    aria-label="Message"
+                    placeholder="Message…"
+                    rows={2}
+                    maxLength={4000}
+                    value={text}
+                    onChange={(e) => T(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (
+                        e.key === "Enter" &&
+                        !e.shiftKey &&
+                        !e.nativeEvent.isComposing
+                      ) {
+                        e.preventDefault();
+                        if (text.trim() || files.length || assets.length)
+                          e.currentTarget.form?.requestSubmit();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="submit"
+                    className="primary chat-send"
+                    size="icon"
+                    aria-label={
+                      editing ? "Save edited message" : "Send message"
+                    }
+                    disabled={
+                      busy || (!text.trim() && !files.length && !assets.length)
+                    }
+                  >
+                    <Send size={18} />
+                  </Button>
+                </div>
+                <div className="compose-tools">
+                  <input
+                    ref={fileInput}
+                    type="file"
+                    multiple
+                    hidden
+                    onChange={(e) => {
+                      F([...files, ...Array.from(e.target.files || [])]);
+                      e.target.value = "";
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={busy || !!editing}
+                    onClick={() => fileInput.current?.click()}
+                  >
+                    <Paperclip size={16} /> Upload media
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={busy || !!editing}
+                    onClick={() => Pick(true)}
+                  >
+                    <FolderOpen size={16} /> Asset Room
+                  </Button>
+                  <small>
+                    {busy
+                      ? "Saving…"
+                      : "Enter to send · Shift+Enter for a new line"}
+                  </small>
+                </div>
+              </form>
+            </>
+          ) : (
+            <div className="inbox-empty">
+              <p>Choose a chat.</p>
+            </div>
+          )}
+        </div>
+      </div>
+      <Dialog.Root open={picker} onOpenChange={Pick}>
+        <Dialog.Portal
+          container={
+            typeof document !== "undefined"
+              ? (document.querySelector(".app") as HTMLElement)
+              : undefined
+          }
+        >
+          <Dialog.Overlay className="crop-overlay" />
+          <Dialog.Content className="crop-dialog chat-asset-dialog">
+            <div className="crop-heading">
+              <div>
+                <Dialog.Title>Send from Asset Room</Dialog.Title>
+                <Dialog.Description>
+                  Select existing files. Originals are reused and linked to this
+                  chat.
+                </Dialog.Description>
+              </div>
+              <Dialog.Close asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Close asset picker"
+                >
+                  <X size={18} />
+                </Button>
+              </Dialog.Close>
+            </div>
+            <AssetPicker selected={assets} onChange={A} />
+            <div className="crop-actions">
+              <Dialog.Close asChild>
+                <Button>Done · {assets.length} selected</Button>
+              </Dialog.Close>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+    </section>
+  );
+  return pop && !pop.closed
+    ? createPortal(panel, pop.document.getElementById("collab-popout")!)
+    : panel;
+}
+function AssetPicker({ selected, onChange }: any) {
+  const s = useWorkspace(),
+    [q, Q] = useState("");
+  const assets = s.records.filter(
+    (a: any) =>
+      a.kind === "asset" &&
+      !a.archived &&
+      canAccessAsset(a, s) &&
+      a.title.toLowerCase().includes(q.toLowerCase()),
+  );
+  return (
+    <>
+      <Input
+        aria-label="Search Asset Room files"
+        placeholder="Search files…"
+        value={q}
+        onChange={(e) => Q(e.target.value)}
+      />
+      <div className="chat-asset-picker">
+        {assets.map((a: any) => (
+          <label key={a.id}>
+            <input
+              type="checkbox"
+              checked={selected.includes(a.id)}
+              onChange={(e) =>
+                onChange(
+                  e.target.checked
+                    ? [...selected, a.id]
+                    : selected.filter((id: string) => id !== a.id),
+                )
+              }
+            />
+            <div>
+              <b>{a.title}</b>
+              <small>
+                {a.type} ·{" "}
+                {a.chatOrigins?.length
+                  ? "Previously shared in chat"
+                  : "Asset Room"}
+              </small>
+            </div>
+          </label>
+        ))}
+        {!assets.length && (
+          <p>
+            No matching files. Use Upload media to add files from your device.
+          </p>
+        )}
+      </div>
+    </>
+  );
+}

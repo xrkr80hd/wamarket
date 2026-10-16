@@ -1,9 +1,235 @@
-'use client';
-import {apiFetch,apiJSON} from '../lib/api-response';
-import {useRef,useState,useEffect} from 'react';
-export default function TemplateStudio({template,onClose,onSaved}:any){const canvas=useRef<HTMLCanvasElement>(null);const [name,setName]=useState('Employee Name'),[award,setAward]=useState(template.title||'TOP GUN'),[store,setStore]=useState('Walker Automotive'),[color,setColor]=useState(template.accent||'#df3f78'),[ratio,setRatio]=useState('1080x1080'),[photo,setPhoto]=useState<HTMLImageElement|null>(null),[logo,setLogo]=useState<HTMLImageElement|null>(null),[bg,setBg]=useState<HTMLImageElement|null>(null),[scale,setScale]=useState(1),[offset,setOffset]=useState(0),[font,setFont]=useState(72),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
-const image=(file:File|undefined,set:any)=>{if(!file)return;const im=new window.Image();const url=URL.createObjectURL(file);im.onload=()=>{set(im);URL.revokeObjectURL(url)};im.src=url};
-useEffect(()=>{const c=canvas.current;if(!c)return;const [w,h]=ratio.split('x').map(Number);c.width=w;c.height=h;const x=c.getContext('2d')!;x.fillStyle=color;x.fillRect(0,0,w,h);if(bg)x.drawImage(bg,0,0,w,h);x.fillStyle='#ffffff14';x.beginPath();x.arc(w*.9,h*.08,w*.6,0,Math.PI*2);x.fill();if(photo){const pw=w*.78,ph=h*.58,f=Math.max(pw/photo.width,ph/photo.height)*scale;x.save();x.beginPath();x.rect(w*.11,h*.19,pw,ph);x.clip();x.drawImage(photo,(w-photo.width*f)/2+offset,(h*.48-photo.height*f/2),photo.width*f,photo.height*f);x.restore()}x.fillStyle='white';x.textAlign='center';x.font='700 '+Math.round(w*.022)+'px Arial';x.fillText(store.toUpperCase(),w/2,h*.075,w*.85);x.font='900 '+font+'px Arial';x.fillText(award.toUpperCase(),w/2,h*.15,w*.88);x.fillStyle='#222b32';x.fillRect(0,h*.79,w,h*.21);x.fillStyle='white';x.font='700 '+Math.round(w*.055)+'px Arial';x.fillText(name,w/2,h*.88,w*.86);x.font='400 '+Math.round(w*.021)+'px Arial';x.fillText('EMPLOYEE RECOGNITION',w/2,h*.94);if(logo){const f=Math.min(w*.16/logo.width,h*.08/logo.height);x.drawImage(logo,w*.05,h*.025,logo.width*f,logo.height*f)}},[name,award,store,color,ratio,photo,logo,bg,scale,offset,font]);
-function exportFile(type:string){const a=document.createElement('a');a.download=name.replace(/\W/g,'_')+'.'+(type==='image/jpeg'?'jpg':'png');a.href=canvas.current!.toDataURL(type,.95);a.click()}
-async function save(){setBusy(true);try{const blob=await new Promise<Blob>(r=>canvas.current!.toBlob(b=>r(b!),'image/png'));const f=new FormData();f.append('file',new File([blob],name+'-'+award+'.png',{type:'image/png'}));f.append('dealership',store);f.append('project',template.id||'');const res=await apiFetch('/api/files',{method:'POST',body:f});const d:any=await apiJSON(res);if(!res.ok)throw Error(d.error);setMessage('Saved to Media Vault as Draft. Submit it for review from Media Vault.');onSaved()}catch(e:any){setMessage(e.message)}finally{setBusy(false)}}
-return <div className="overlay"><section className="modal wide"><div className="modalhead"><div><small>TEMPLATE STUDIO / EASY MODE</small><h2>{template.title}</h2></div><button onClick={onClose}>Close</button></div><div className="twocol"><div><canvas ref={canvas} style={{width:'100%',maxHeight:550,objectFit:'contain',background:'#eee'}}/></div><div className="studio-controls"><label>Employee / headline<input value={name} onChange={e=>setName(e.target.value)}/></label><label>Award / promotion<input value={award} onChange={e=>setAward(e.target.value)}/></label><label>Dealership<input value={store} onChange={e=>setStore(e.target.value)}/></label><label>Real employee photo<input type="file" accept="image/*" onChange={e=>image(e.target.files?.[0],setPhoto)}/></label><label>Approved dealership logo<input type="file" accept="image/*" onChange={e=>image(e.target.files?.[0],setLogo)}/></label><label>Background artwork<input type="file" accept="image/*" onChange={e=>image(e.target.files?.[0],setBg)}/></label><label>Background color<input type="color" value={color} onChange={e=>setColor(e.target.value)}/></label><label>Format<select value={ratio} onChange={e=>setRatio(e.target.value)}><option value="1080x1080">Square · 1080 × 1080</option><option value="1080x1350">Portrait · 1080 × 1350</option><option value="1920x1080">Landscape · 1920 × 1080</option><option value="1080x1920">Story · 1080 × 1920</option></select></label><label>Photo scale<input type="range" min="1" max="3" step="0.05" value={scale} onChange={e=>setScale(Number(e.target.value))}/></label><label>Photo horizontal position<input type="range" min="-400" max="400" value={offset} onChange={e=>setOffset(Number(e.target.value))}/></label><label>Headline size<input type="range" min="30" max="140" value={font} onChange={e=>setFont(Number(e.target.value))}/></label><p>Uploaded photos are preserved as supplied. Background removal is not connected.</p></div></div>{message&&<div className="notice">{message}</div>}<div className="modalactions"><button onClick={()=>exportFile('image/png')}>Export PNG</button><button onClick={()=>exportFile('image/jpeg')}>Export JPG</button><button className="primary" disabled={busy} onClick={save}>Save graphic to Media Vault</button></div></section></div>}
+"use client";
+import { apiFetch, apiJSON } from "../lib/api-response";
+import { useRef, useState, useEffect } from "react";
+export default function TemplateStudio({ template, onClose, onSaved }: any) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const [name, setName] = useState("Employee Name"),
+    [award, setAward] = useState(template.title || "TOP GUN"),
+    [store, setStore] = useState("Walker Automotive"),
+    [color, setColor] = useState(template.accent || "#df3f78"),
+    [ratio, setRatio] = useState("1080x1080"),
+    [photo, setPhoto] = useState<HTMLImageElement | null>(null),
+    [logo, setLogo] = useState<HTMLImageElement | null>(null),
+    [bg, setBg] = useState<HTMLImageElement | null>(null),
+    [scale, setScale] = useState(1),
+    [offset, setOffset] = useState(0),
+    [font, setFont] = useState(72),
+    [message, setMessage] = useState(""),
+    [busy, setBusy] = useState(false);
+  const image = (file: File | undefined, set: any) => {
+    if (!file) return;
+    const im = new window.Image();
+    const url = URL.createObjectURL(file);
+    im.onload = () => {
+      set(im);
+      URL.revokeObjectURL(url);
+    };
+    im.src = url;
+  };
+  useEffect(() => {
+    const c = canvas.current;
+    if (!c) return;
+    const [w, h] = ratio.split("x").map(Number);
+    c.width = w;
+    c.height = h;
+    const x = c.getContext("2d")!;
+    x.fillStyle = color;
+    x.fillRect(0, 0, w, h);
+    if (bg) x.drawImage(bg, 0, 0, w, h);
+    x.fillStyle = "#ffffff14";
+    x.beginPath();
+    x.arc(w * 0.9, h * 0.08, w * 0.6, 0, Math.PI * 2);
+    x.fill();
+    if (photo) {
+      const pw = w * 0.78,
+        ph = h * 0.58,
+        f = Math.max(pw / photo.width, ph / photo.height) * scale;
+      x.save();
+      x.beginPath();
+      x.rect(w * 0.11, h * 0.19, pw, ph);
+      x.clip();
+      x.drawImage(
+        photo,
+        (w - photo.width * f) / 2 + offset,
+        h * 0.48 - (photo.height * f) / 2,
+        photo.width * f,
+        photo.height * f,
+      );
+      x.restore();
+    }
+    x.fillStyle = "white";
+    x.textAlign = "center";
+    x.font = "700 " + Math.round(w * 0.022) + "px Arial";
+    x.fillText(store.toUpperCase(), w / 2, h * 0.075, w * 0.85);
+    x.font = "900 " + font + "px Arial";
+    x.fillText(award.toUpperCase(), w / 2, h * 0.15, w * 0.88);
+    x.fillStyle = "#222b32";
+    x.fillRect(0, h * 0.79, w, h * 0.21);
+    x.fillStyle = "white";
+    x.font = "700 " + Math.round(w * 0.055) + "px Arial";
+    x.fillText(name, w / 2, h * 0.88, w * 0.86);
+    x.font = "400 " + Math.round(w * 0.021) + "px Arial";
+    x.fillText("EMPLOYEE RECOGNITION", w / 2, h * 0.94);
+    if (logo) {
+      const f = Math.min((w * 0.16) / logo.width, (h * 0.08) / logo.height);
+      x.drawImage(logo, w * 0.05, h * 0.025, logo.width * f, logo.height * f);
+    }
+  }, [name, award, store, color, ratio, photo, logo, bg, scale, offset, font]);
+  function exportFile(type: string) {
+    const a = document.createElement("a");
+    a.download =
+      name.replace(/\W/g, "_") + "." + (type === "image/jpeg" ? "jpg" : "png");
+    a.href = canvas.current!.toDataURL(type, 0.95);
+    a.click();
+  }
+  async function save() {
+    setBusy(true);
+    try {
+      const blob = await new Promise<Blob>((r) =>
+        canvas.current!.toBlob((b) => r(b!), "image/png"),
+      );
+      const f = new FormData();
+      f.append(
+        "file",
+        new File([blob], name + "-" + award + ".png", { type: "image/png" }),
+      );
+      f.append("dealership", store);
+      f.append("project", template.id || "");
+      const res = await apiFetch("/api/files", { method: "POST", body: f });
+      const d: any = await apiJSON(res);
+      if (!res.ok) throw Error(d.error);
+      setMessage(
+        "Saved to Media Vault as Draft. Submit it for review from Media Vault.",
+      );
+      onSaved();
+    } catch (e: any) {
+      setMessage(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="overlay">
+      <section className="modal wide">
+        <div className="modalhead">
+          <div>
+            <small>TEMPLATE STUDIO / EASY MODE</small>
+            <h2>{template.title}</h2>
+          </div>
+          <button onClick={onClose}>Close</button>
+        </div>
+        <div className="twocol">
+          <div>
+            <canvas
+              ref={canvas}
+              style={{
+                width: "100%",
+                maxHeight: 550,
+                objectFit: "contain",
+                background: "#eee",
+              }}
+            />
+          </div>
+          <div className="studio-controls">
+            <label>
+              Employee / headline
+              <input value={name} onChange={(e) => setName(e.target.value)} />
+            </label>
+            <label>
+              Award / promotion
+              <input value={award} onChange={(e) => setAward(e.target.value)} />
+            </label>
+            <label>
+              Dealership
+              <input value={store} onChange={(e) => setStore(e.target.value)} />
+            </label>
+            <label>
+              Real employee photo
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => image(e.target.files?.[0], setPhoto)}
+              />
+            </label>
+            <label>
+              Approved dealership logo
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => image(e.target.files?.[0], setLogo)}
+              />
+            </label>
+            <label>
+              Background artwork
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => image(e.target.files?.[0], setBg)}
+              />
+            </label>
+            <label>
+              Background color
+              <input
+                type="color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+              />
+            </label>
+            <label>
+              Format
+              <select value={ratio} onChange={(e) => setRatio(e.target.value)}>
+                <option value="1080x1080">Square · 1080 × 1080</option>
+                <option value="1080x1350">Portrait · 1080 × 1350</option>
+                <option value="1920x1080">Landscape · 1920 × 1080</option>
+                <option value="1080x1920">Story · 1080 × 1920</option>
+              </select>
+            </label>
+            <label>
+              Photo scale
+              <input
+                type="range"
+                min="1"
+                max="3"
+                step="0.05"
+                value={scale}
+                onChange={(e) => setScale(Number(e.target.value))}
+              />
+            </label>
+            <label>
+              Photo horizontal position
+              <input
+                type="range"
+                min="-400"
+                max="400"
+                value={offset}
+                onChange={(e) => setOffset(Number(e.target.value))}
+              />
+            </label>
+            <label>
+              Headline size
+              <input
+                type="range"
+                min="30"
+                max="140"
+                value={font}
+                onChange={(e) => setFont(Number(e.target.value))}
+              />
+            </label>
+            <p>
+              Uploaded photos are preserved as supplied. Background removal is
+              not connected.
+            </p>
+          </div>
+        </div>
+        {message && <div className="notice">{message}</div>}
+        <div className="modalactions">
+          <button onClick={() => exportFile("image/png")}>Export PNG</button>
+          <button onClick={() => exportFile("image/jpeg")}>Export JPG</button>
+          <button className="primary" disabled={busy} onClick={save}>
+            Save graphic to Media Vault
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}

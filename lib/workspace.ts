@@ -1,9 +1,244 @@
-import { env } from 'cloudflare:workers';
-import { getChatGPTUser } from '../app/chatgpt-auth';
-import seed from '../app/seed.json';
-import {withCampaignTasks} from './campaign-tasks';
-export function db(){if(!env.DB) throw new Error('Database is unavailable');return env.DB;}
-export async function member(){const u=await getChatGPTUser();if(!u)throw new Error('Unauthorized');let m=await db().prepare('SELECT * FROM members WHERE id=?').bind(u.userId).first<any>();if(!m){const owner=u.email.toLowerCase()==='mhutson@walkerautomotive.com';const invite=await db().prepare("SELECT data FROM records WHERE kind='invite' AND id=?").bind('invite:'+u.email.toLowerCase()).first<any>();if(!owner&&!invite)throw new Error('Access denied: ask McKenzie to authorize your email');await db().prepare('INSERT OR IGNORE INTO members (id,email,name,role,preferences) VALUES (?,?,?,?,?)').bind(u.userId,u.email,owner?u.displayName:'Travis Wilkinson',owner?'owner':'coordinator','{}').run();m=await db().prepare('SELECT * FROM members WHERE id=?').bind(u.userId).first<any>();}return m;}
-export async function records(){const r=await db().prepare('SELECT * FROM records ORDER BY updated DESC').all<any>();return r.results.map(x=>({...JSON.parse(x.data),id:x.id,kind:x.kind}));}
-export async function save(data:any,m:any,expectedData?:string){if(!data.title||typeof data.title!=='string'||data.title.length>300)throw new Error('A title is required');const kinds=['event','project','idea','content','asset','template','link','folder','dealership','workflow','todo','availability','contact'];if(!kinds.includes(data.kind))throw new Error('Invalid record type');if(data.kind==='contact'){for(const key of ['name','company','email','phone','purpose','notes'])if(String(data[key]||'').length>(key==='notes'?4000:300))throw Error('Contact field is too long');if(data.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email))throw Error('Enter a valid contact email');}if(data.kind==='availability'){if(!['owner','coordinator'].includes(data.person)||!['In office','Working from home','On location','Out of office','Unavailable'].includes(data.availability))throw Error('Choose a team member and availability status');const validDate=(value:string)=>/^\d{4}-\d{2}-\d{2}$/.test(value||'')&&Number.isFinite(Date.parse(value+'T12:00:00Z'))&&new Date(value+'T12:00:00Z').toISOString().slice(0,10)===value;if(!validDate(data.date)||!validDate(data.endDate)||data.endDate<data.date)throw Error('Choose a valid availability date range');if(typeof data.notes!=='string'||data.notes.length>4000)throw Error('Use a note under 4000 characters');}if(m.role!=='owner'&&['dealership'].includes(data.kind))throw new Error('Owner permission required');const prior=await db().prepare('SELECT data FROM records WHERE id=?').bind(data.id||'').first<any>();if(expectedData!==undefined&&prior?.data!==expectedData)throw Error('This campaign changed. Refresh and try again');const old=prior?JSON.parse(prior.data):null;data=withCampaignTasks(data,old);if(old&&old.kind!==data.kind)throw new Error('Record type cannot change');if(data.kind==='asset'&&old&&data.key!==old.key)throw new Error('Original file reference cannot change');if(data.kind==='asset'){if(old){data.originalName=old.originalName||old.title;}if(data.project||data.folder){const target=await db().prepare("SELECT kind FROM records WHERE id=?").bind(data.project||data.folder).first<any>();if(!target||!(data.project?['event','project','template']:['folder']).includes(target.kind))throw Error('Choose an existing project or folder');}} if((data.status==='Approved'||data.approval==='Approved')&&m.role!=='owner'&&(old?.status!==data.status||old?.approval!==data.approval))throw new Error('Only McKenzie can approve');if(data.kind==='asset'&&m.role!=='owner'&&old?.status==='Approved')throw new Error('Approved media requires owner editing');if(['Scheduled','Published'].includes(data.status)&&data.kind==='content'&&data.approval!=='Approved')throw new Error('Approve content before scheduling or publication');if(data.kind==='link'&&!/^https?:\/\//i.test(data.url||''))throw new Error('Use an http or https URL');if(m.role!=='owner'&&old?.approval==='Approved'&&data.notes!==old.notes)throw new Error('Approved copy needs owner review');if(['Approved','Scheduled','Published'].includes(data.status)&&m.role!=='owner'&&['project','content'].includes(data.kind))throw new Error('Owner approval required');const id=data.id||crypto.randomUUID();const history=[...(old?.history||[]),{at:new Date().toISOString(),by:m.name,action:old?'Updated':'Created',status:data.status}].slice(-100);if(expectedData!==undefined){const updated=await db().prepare('UPDATE records SET data=?,updated=? WHERE id=? AND data=?').bind(JSON.stringify({...data,id,history}),new Date().toISOString(),id,expectedData).run();if(!updated.meta.changes)throw Error('This campaign changed. Refresh and try again');return id;}await db().prepare('INSERT INTO records (id,kind,data,updated) VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data,updated=excluded.updated').bind(id,data.kind,JSON.stringify({...data,id,history}),new Date().toISOString()).run();return id;}
-export async function importHistory(m:any){if(m.role!=='owner')throw new Error('Owner permission required');const existing=await db().prepare("SELECT id FROM records WHERE id='history-imported'").first();if(existing)return;const dealerships=['CDJR','Toyota','Honda','Kia','Mazda','BMW','Mercedes-Benz','Pineville Used Cars','Big Lot','GMC'].map((n,i)=>({id:'dealership-'+i,kind:'dealership',title:'Walker '+n,status:'Active',accent:'#29353d'}));await db().batch([...dealerships.map(e=>db().prepare('INSERT OR IGNORE INTO records (id,kind,data,updated) VALUES (?,?,?,?)').bind(e.id,e.kind,JSON.stringify(e),new Date().toISOString())),...seed.map(e=>db().prepare('INSERT OR IGNORE INTO records (id,kind,data,updated) VALUES (?,?,?,?)').bind(e.id,e.kind,JSON.stringify(e),new Date().toISOString())),db().prepare('INSERT INTO records (id,kind,data,updated) VALUES (?,?,?,?)').bind('history-imported','system','{}',new Date().toISOString())]);}
+import { env } from "cloudflare:workers";
+import { getChatGPTUser } from "../app/chatgpt-auth";
+import seed from "../app/seed.json";
+import { withCampaignTasks } from "./campaign-tasks";
+export function db() {
+  if (!env.DB) throw new Error("Database is unavailable");
+  return env.DB;
+}
+export async function member() {
+  const u = await getChatGPTUser();
+  if (!u) throw new Error("Unauthorized");
+  let m = await db()
+    .prepare("SELECT * FROM members WHERE id=?")
+    .bind(u.userId)
+    .first<any>();
+  if (!m) {
+    const owner = u.email.toLowerCase() === "mhutson@walkerautomotive.com";
+    const invite = await db()
+      .prepare("SELECT data FROM records WHERE kind='invite' AND id=?")
+      .bind("invite:" + u.email.toLowerCase())
+      .first<any>();
+    if (!owner && !invite)
+      throw new Error("Access denied: ask McKenzie to authorize your email");
+    await db()
+      .prepare(
+        "INSERT OR IGNORE INTO members (id,email,name,role,preferences) VALUES (?,?,?,?,?)",
+      )
+      .bind(
+        u.userId,
+        u.email,
+        owner ? u.displayName : "Travis Wilkinson",
+        owner ? "owner" : "coordinator",
+        "{}",
+      )
+      .run();
+    m = await db()
+      .prepare("SELECT * FROM members WHERE id=?")
+      .bind(u.userId)
+      .first<any>();
+  }
+  return m;
+}
+export async function records() {
+  const r = await db()
+    .prepare("SELECT * FROM records ORDER BY updated DESC")
+    .all<any>();
+  return r.results.map((x) => ({
+    ...JSON.parse(x.data),
+    id: x.id,
+    kind: x.kind,
+  }));
+}
+export async function save(data: any, m: any, expectedData?: string) {
+  if (!data.title || typeof data.title !== "string" || data.title.length > 300)
+    throw new Error("A title is required");
+  const kinds = [
+    "event",
+    "project",
+    "idea",
+    "content",
+    "asset",
+    "template",
+    "link",
+    "folder",
+    "dealership",
+    "workflow",
+    "todo",
+    "availability",
+    "contact",
+  ];
+  if (!kinds.includes(data.kind)) throw new Error("Invalid record type");
+  if (data.kind === "contact") {
+    for (const key of ["name", "company", "email", "phone", "purpose", "notes"])
+      if (String(data[key] || "").length > (key === "notes" ? 4000 : 300))
+        throw Error("Contact field is too long");
+    if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email))
+      throw Error("Enter a valid contact email");
+  }
+  if (data.kind === "availability") {
+    if (
+      !["owner", "coordinator"].includes(data.person) ||
+      ![
+        "In office",
+        "Working from home",
+        "On location",
+        "Out of office",
+        "Unavailable",
+      ].includes(data.availability)
+    )
+      throw Error("Choose a team member and availability status");
+    const validDate = (value: string) =>
+      /^\d{4}-\d{2}-\d{2}$/.test(value || "") &&
+      Number.isFinite(Date.parse(value + "T12:00:00Z")) &&
+      new Date(value + "T12:00:00Z").toISOString().slice(0, 10) === value;
+    if (
+      !validDate(data.date) ||
+      !validDate(data.endDate) ||
+      data.endDate < data.date
+    )
+      throw Error("Choose a valid availability date range");
+    if (typeof data.notes !== "string" || data.notes.length > 4000)
+      throw Error("Use a note under 4000 characters");
+  }
+  if (m.role !== "owner" && ["dealership"].includes(data.kind))
+    throw new Error("Owner permission required");
+  const prior = await db()
+    .prepare("SELECT data FROM records WHERE id=?")
+    .bind(data.id || "")
+    .first<any>();
+  if (expectedData !== undefined && prior?.data !== expectedData)
+    throw Error("This campaign changed. Refresh and try again");
+  const old = prior ? JSON.parse(prior.data) : null;
+  data = withCampaignTasks(data, old);
+  if (old && old.kind !== data.kind)
+    throw new Error("Record type cannot change");
+  if (data.kind === "asset" && old && data.key !== old.key)
+    throw new Error("Original file reference cannot change");
+  if (data.kind === "asset") {
+    if (old) {
+      data.originalName = old.originalName || old.title;
+    }
+    if (data.project || data.folder) {
+      const target = await db()
+        .prepare("SELECT kind FROM records WHERE id=?")
+        .bind(data.project || data.folder)
+        .first<any>();
+      if (
+        !target ||
+        !(
+          data.project ? ["event", "project", "template"] : ["folder"]
+        ).includes(target.kind)
+      )
+        throw Error("Choose an existing project or folder");
+    }
+  }
+  if (
+    (data.status === "Approved" || data.approval === "Approved") &&
+    m.role !== "owner" &&
+    (old?.status !== data.status || old?.approval !== data.approval)
+  )
+    throw new Error("Only McKenzie can approve");
+  if (data.kind === "asset" && m.role !== "owner" && old?.status === "Approved")
+    throw new Error("Approved media requires owner editing");
+  if (
+    ["Scheduled", "Published"].includes(data.status) &&
+    data.kind === "content" &&
+    data.approval !== "Approved"
+  )
+    throw new Error("Approve content before scheduling or publication");
+  if (data.kind === "link" && !/^https?:\/\//i.test(data.url || ""))
+    throw new Error("Use an http or https URL");
+  if (
+    m.role !== "owner" &&
+    old?.approval === "Approved" &&
+    data.notes !== old.notes
+  )
+    throw new Error("Approved copy needs owner review");
+  if (
+    ["Approved", "Scheduled", "Published"].includes(data.status) &&
+    m.role !== "owner" &&
+    ["project", "content"].includes(data.kind)
+  )
+    throw new Error("Owner approval required");
+  const id = data.id || crypto.randomUUID();
+  const history = [
+    ...(old?.history || []),
+    {
+      at: new Date().toISOString(),
+      by: m.name,
+      action: old ? "Updated" : "Created",
+      status: data.status,
+    },
+  ].slice(-100);
+  if (expectedData !== undefined) {
+    const updated = await db()
+      .prepare("UPDATE records SET data=?,updated=? WHERE id=? AND data=?")
+      .bind(
+        JSON.stringify({ ...data, id, history }),
+        new Date().toISOString(),
+        id,
+        expectedData,
+      )
+      .run();
+    if (!updated.meta.changes)
+      throw Error("This campaign changed. Refresh and try again");
+    return id;
+  }
+  await db()
+    .prepare(
+      "INSERT INTO records (id,kind,data,updated) VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data,updated=excluded.updated",
+    )
+    .bind(
+      id,
+      data.kind,
+      JSON.stringify({ ...data, id, history }),
+      new Date().toISOString(),
+    )
+    .run();
+  return id;
+}
+export async function importHistory(m: any) {
+  if (m.role !== "owner") throw new Error("Owner permission required");
+  const existing = await db()
+    .prepare("SELECT id FROM records WHERE id='history-imported'")
+    .first();
+  if (existing) return;
+  const dealerships = [
+    "CDJR",
+    "Toyota",
+    "Honda",
+    "Kia",
+    "Mazda",
+    "BMW",
+    "Mercedes-Benz",
+    "Pineville Used Cars",
+    "Big Lot",
+    "GMC",
+  ].map((n, i) => ({
+    id: "dealership-" + i,
+    kind: "dealership",
+    title: "Walker " + n,
+    status: "Active",
+    accent: "#29353d",
+  }));
+  await db().batch([
+    ...dealerships.map((e) =>
+      db()
+        .prepare(
+          "INSERT OR IGNORE INTO records (id,kind,data,updated) VALUES (?,?,?,?)",
+        )
+        .bind(e.id, e.kind, JSON.stringify(e), new Date().toISOString()),
+    ),
+    ...seed.map((e) =>
+      db()
+        .prepare(
+          "INSERT OR IGNORE INTO records (id,kind,data,updated) VALUES (?,?,?,?)",
+        )
+        .bind(e.id, e.kind, JSON.stringify(e), new Date().toISOString()),
+    ),
+    db()
+      .prepare("INSERT INTO records (id,kind,data,updated) VALUES (?,?,?,?)")
+      .bind("history-imported", "system", "{}", new Date().toISOString()),
+  ]);
+}

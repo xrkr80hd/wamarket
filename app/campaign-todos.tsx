@@ -1,19 +1,484 @@
-import TeamStatus from './team-status';
-import {getState} from '../lib/preview-store';
-'use client';
-import {useState,useRef} from 'react';
-import {Dialog} from 'radix-ui';
-import {Plus,CheckCheck,ChevronRight,X,CalendarDays} from 'lucide-react';
-import {campaignRecords,effectiveUrgency,sortedTodos} from '../lib/campaign-tasks';
-import {chicagoDate} from '../lib/daily-quotes';
-const urgencyLabel:Record<string,string>={Auto:'By due date',Urgent:'Act now',High:'Needs attention',Normal:'On track',Low:'Low priority'};
-export default function CampaignTodos({records,action,onOpen,onCalendar}:any){
- const portalHost=useRef<HTMLElement>(null);const today=chicagoDate();const [adding,setAdding]=useState(false),[quickTitle,setQuickTitle]=useState(''),[quickDone,setQuickDone]=useState(false),[eventDone,setEventDone]=useState(false),[selected,setSelected]=useState<any>(null),[draft,setDraft]=useState<any>({}),[busy,setBusy]=useState(false);
- const quick=sortedTodos(records.filter((r:any)=>r.kind==='todo'&&!r.archived).map((r:any)=>({...r,record:r,standalone:true})),today);const campaigns=campaignRecords(records).sort((a:any,b:any)=>(a.date||'9999').localeCompare(b.date||'9999'));const eventTasks=campaigns.flatMap((r:any)=>(r.tasks||[]).map((t:any,index:number)=>({...t,record:r,index})));
- async function update(t:any,values:any){t={...t,record:getState().records.find((r:any)=>r.id===t.record.id)||t.record};setBusy(true);try{const ok=t.standalone?await action({record:{...t.record,...values}}):await action({action:'task',recordId:t.record.id,index:t.index,title:t.title,status:t.status,assignee:t.assignee||'',due:t.due||'',eventDate:t.eventDate||'',urgency:t.urgency||'Auto',...values});if(ok&&selected&&(selected.standalone?selected.id===t.id:selected.record.id===t.record.id&&selected.index===t.index))setSelected({...selected,...values,record:t.standalone?{...t.record,...values}:t.record});return ok}finally{setBusy(false)}}
- function openTask(t:any){setSelected(t);setDraft({title:t.title,notes:t.notes||t.description||'',due:t.due||'',eventDate:t.eventDate||'',assignee:t.assignee||'',urgency:t.urgency||'Auto'})}
- function taskRow(t:any){const priority=effectiveUrgency(t,today);return <div className={'check-card-row '+(t.status==='Complete'?'done':'')} key={t.standalone?t.id:t.record.id+':'+t.index}><input type="checkbox" checked={t.status==='Complete'} disabled={busy} onChange={e=>update(t,{status:e.target.checked?'Complete':'To Do'})} aria-label={(t.status==='Complete'?'Reopen ':'Complete ')+t.title}/><button className="check-task-title" onClick={()=>openTask(t)}><span>{t.title}</span><small>{t.assignee||'Unassigned'}{t.due?' · '+t.due:''}</small><small className="task-seen-summary">{Object.values(t.acknowledgements||{}).map((a:any)=>a.name+' · '+(a.status==='onit'?'On it':'Seen')).join(' / ')}</small></button>{t.status==='Not Verified'?<span className="check-unverified">Unverified</span>:t.status!=='Complete'&&<button className={'urgency-badge '+priority.toLowerCase()} title="Edit urgency and task details" onClick={()=>openTask(t)}>{urgencyLabel[priority]}</button>}</div>}
- return <section className="todo-card-grid" ref={portalHost}><div className="card checklist-card"><div className="check-card-heading"><h2>Quick To-dos</h2><button className="small-plus" onClick={()=>setAdding(!adding)} aria-label="Add a quick to-do" title="Add a quick to-do"><Plus size={17}/></button></div>{adding&&<form className="quick-add-line" onSubmit={async e=>{e.preventDefault();setBusy(true);try{if(await action({record:{kind:'todo',title:quickTitle.trim(),status:'To Do',assignee:'McKenzie',due:today,urgency:'Auto'}})){setQuickTitle('');setAdding(false)}}finally{setBusy(false)}}}><input autoFocus required maxLength={300} value={quickTitle} onChange={e=>setQuickTitle(e.target.value)} placeholder="What needs to happen?" aria-label="New quick to-do"/><button className="primary" disabled={busy||!quickTitle.trim()}>Add</button></form>}<div className="check-card-body">{quick.filter((t:any)=>t.status!=='Complete').map(taskRow)}{!quick.some((t:any)=>t.status!=='Complete')&&<div className="check-card-empty"><CheckCheck size={22}/><p>No quick to-dos yet. Add one with the +.</p></div>}{quickDone&&quick.filter((t:any)=>t.status==='Complete').map(taskRow)}</div><div className="check-card-footer"><span>{quick.filter((t:any)=>t.status!=='Complete').length} open</span><button onClick={()=>setQuickDone(!quickDone)}>{quickDone?'Hide completed':'Completed'} ({quick.filter((t:any)=>t.status==='Complete').length})</button></div></div>
- <div className="card checklist-card"><div className="check-card-heading"><h2>Upcoming Event Tasks</h2><button type="button" className="event-calendar-link" aria-label="Open Content Calendar" title="Open Content Calendar" onClick={onCalendar}><CalendarDays size={18}/></button></div><div className="check-card-body event-checklists">{campaigns.map((record:any)=>{const tasks=sortedTodos((record.tasks||[]).map((t:any,index:number)=>({...t,record,index})),today);const open=tasks.filter(t=>t.status!=='Complete'&&t.status!=='Not Verified'),unverified=tasks.filter(t=>t.status==='Not Verified'),complete=tasks.filter(t=>t.status==='Complete');return <section className="event-task-group" key={record.id}><button className="event-task-heading" onClick={()=>onOpen(record)}><div><b>{record.title}</b><small>{record.date||record.dateText||'Date to be confirmed'} · {open.length} open</small></div><ChevronRight size={16}/></button>{open.map(taskRow)}{!!unverified.length&&<details className="historical-task-checks"><summary>{unverified.length} historical tasks · verify completion</summary>{unverified.map(taskRow)}</details>}{eventDone&&complete.map(taskRow)}{!tasks.length&&<p className="group-no-tasks">Add checklist items inside this campaign.</p>}</section>})}{!campaigns.length&&<div className="check-card-empty"><CalendarDays size={22}/><p>Event and campaign checklists will appear here when created.</p></div>}</div><div className="check-card-footer"><span>{eventTasks.filter((t:any)=>t.status!=='Complete'&&t.status!=='Not Verified').length} open</span><button onClick={()=>setEventDone(!eventDone)}>{eventDone?'Hide completed':'Completed'} ({eventTasks.filter((t:any)=>t.status==='Complete').length})</button></div></div>
- <Dialog.Root open={!!selected} onOpenChange={open=>{if(!open&&!busy)setSelected(null)}}><Dialog.Portal container={portalHost.current}><Dialog.Overlay className="crop-overlay"/><Dialog.Content className="crop-dialog task-detail-dialog"><div className="crop-heading"><div><Dialog.Title className="crop-title">{selected?.title||'Task details'}</Dialog.Title><Dialog.Description className="crop-description">{selected?.standalone?'Quick to-do':selected?.record.title}</Dialog.Description></div><Dialog.Close asChild><button className="icon" disabled={busy} aria-label="Close task details"><X size={19}/></button></Dialog.Close></div>{selected&&<><div className="task-communication"><b>Acknowledge this task</b><TeamStatus record={records.find((r:any)=>r.id===selected.record.id)||selected.record} taskIndex={selected.standalone?undefined:selected.index}/></div><form onSubmit={async e=>{e.preventDefault();const values=selected.standalone?{...draft}:{...draft,newTitle:draft.title,title:undefined};if(!selected.standalone)delete values.title;if(await update(selected,values)){setSelected(null)}}}><label>Task<input required maxLength={300} value={draft.title} onChange={e=>setDraft({...draft,title:e.target.value})}/></label><label>Instructions / notes<textarea rows={4} placeholder="Add the details needed to get this done." value={draft.notes} onChange={e=>setDraft({...draft,notes:e.target.value})}/></label>{!selected.standalone&&selected.record.description&&<p className="task-campaign-context">{selected.record.description}</p>}<div className="task-detail-dates"><label>Due date<input type="date" value={draft.due} onChange={e=>setDraft({...draft,due:e.target.value})}/></label><label>Event date<input type="date" value={draft.eventDate} onChange={e=>setDraft({...draft,eventDate:e.target.value})}/></label></div><label>Assigned to</label><div className="task-choice-buttons">{['','McKenzie','Trav'].map(s=><button type="button" key={s} className={draft.assignee===s?'chosen':''} onClick={()=>setDraft({...draft,assignee:s})}>{s||'Unassigned'}</button>)}</div><label>Urgency</label><div className="task-choice-buttons">{['Auto','Urgent','High','Normal','Low'].map(s=><button type="button" key={s} className={draft.urgency===s?'chosen':''} onClick={()=>setDraft({...draft,urgency:s})}>{urgencyLabel[s]}</button>)}</div><div className="crop-actions"><button type="button" disabled={busy} onClick={()=>update(selected,{status:selected.status==='Complete'?'To Do':'Complete'})}><CheckCheck size={16}/>{selected.status==='Complete'?'Mark not done':'Mark completed'}</button><button className="primary" disabled={busy}>Save details</button></div></form>{!selected.standalone&&<button className="open-campaign-checklist" onClick={()=>{setSelected(null);onOpen(selected.record)}}>Open campaign checklist <ChevronRight size={15}/></button>}</>}</Dialog.Content></Dialog.Portal></Dialog.Root></section>
+import TeamStatus from "./team-status";
+import { getState, user } from "../lib/preview-store";
+("use client");
+import { useState, useRef } from "react";
+import { Dialog } from "radix-ui";
+import { Plus, CheckCheck, ChevronRight, X, CalendarDays } from "lucide-react";
+import {
+  campaignRecords,
+  effectiveUrgency,
+  sortedTodos,
+} from "../lib/campaign-tasks";
+import { chicagoDate } from "../lib/daily-quotes";
+const urgencyLabel: Record<string, string> = {
+  Auto: "By due date",
+  Urgent: "Act now",
+  High: "Needs attention",
+  Normal: "On track",
+  Low: "Low priority",
+};
+export default function CampaignTodos({
+  records,
+  action,
+  onOpen,
+  onCalendar,
+}: any) {
+  const portalHost = useRef<HTMLElement>(null);
+  const today = chicagoDate();
+  const [adding, setAdding] = useState(false),
+    [quickTitle, setQuickTitle] = useState(""),
+    [quickDone, setQuickDone] = useState(false),
+    [eventDone, setEventDone] = useState(false),
+    [selected, setSelected] = useState<any>(null),
+    [draft, setDraft] = useState<any>({}),
+    [busy, setBusy] = useState(false);
+  const quick = sortedTodos(
+    records
+      .filter((r: any) => r.kind === "todo" && !r.archived)
+      .map((r: any) => ({ ...r, record: r, standalone: true })),
+    today,
+  );
+  const campaigns = campaignRecords(records).sort((a: any, b: any) =>
+    (a.date || "9999").localeCompare(b.date || "9999"),
+  );
+  const eventTasks = campaigns.flatMap((r: any) =>
+    (r.tasks || []).map((t: any, index: number) => ({
+      ...t,
+      record: r,
+      index,
+    })),
+  );
+  async function update(t: any, values: any) {
+    t = {
+      ...t,
+      record:
+        getState().records.find((r: any) => r.id === t.record.id) || t.record,
+    };
+    setBusy(true);
+    try {
+      const ok = t.standalone
+        ? await action({ record: { ...t.record, ...values } })
+        : await action({
+            action: "task",
+            recordId: t.record.id,
+            index: t.index,
+            title: t.title,
+            status: t.status,
+            assignee: t.assignee || "",
+            due: t.due || "",
+            eventDate: t.eventDate || "",
+            urgency: t.urgency || "Auto",
+            ...values,
+          });
+      if (
+        ok &&
+        selected &&
+        (selected.standalone
+          ? selected.id === t.id
+          : selected.record.id === t.record.id && selected.index === t.index)
+      )
+        setSelected({
+          ...selected,
+          ...values,
+          record: t.standalone ? { ...t.record, ...values } : t.record,
+        });
+      return ok;
+    } finally {
+      setBusy(false);
+    }
+  }
+  function openTask(t: any) {
+    setSelected(t);
+    setDraft({
+      title: t.title,
+      notes: t.notes || t.description || "",
+      due: t.due || "",
+      eventDate: t.eventDate || "",
+      assignee: t.assignee || "",
+      urgency: t.urgency || "Auto",
+    });
+  }
+  function taskRow(t: any) {
+    const priority = effectiveUrgency(t, today);
+    return (
+      <div
+        className={"check-card-row " + (t.status === "Complete" ? "done" : "")}
+        key={t.standalone ? t.id : t.record.id + ":" + t.index}
+      >
+        <input
+          type="checkbox"
+          checked={t.status === "Complete"}
+          disabled={busy}
+          onChange={(e) =>
+            update(t, { status: e.target.checked ? "Complete" : "To Do" })
+          }
+          aria-label={
+            (t.status === "Complete" ? "Reopen " : "Complete ") + t.title
+          }
+        />
+        <button className="check-task-title" onClick={() => openTask(t)}>
+          <span>{t.title}</span>
+          <small>
+            {t.assignee || "Unassigned"}
+            {t.due ? " · " + t.due : ""}
+          </small>
+          <small className="task-seen-summary">
+            {Object.values(t.acknowledgements || {})
+              .map(
+                (a: any) =>
+                  a.name + " · " + (a.status === "onit" ? "On it" : "Seen"),
+              )
+              .join(" / ")}
+          </small>
+        </button>
+        {t.status === "Not Verified" ? (
+          <span className="check-unverified">Unverified</span>
+        ) : (
+          t.status !== "Complete" && (
+            <button
+              className={"urgency-badge " + priority.toLowerCase()}
+              title="Edit urgency and task details"
+              onClick={() => openTask(t)}
+            >
+              {urgencyLabel[priority]}
+            </button>
+          )
+        )}
+      </div>
+    );
+  }
+  return (
+    <section className="todo-card-grid" ref={portalHost}>
+      <div className="card checklist-card">
+        <div className="check-card-heading">
+          <h2>Quick To-dos</h2>
+          <button
+            className="small-plus"
+            onClick={() => setAdding(!adding)}
+            aria-label="Add a quick to-do"
+            title="Add a quick to-do"
+          >
+            <Plus size={17} />
+          </button>
+        </div>
+        {adding && (
+          <form
+            className="quick-add-line"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setBusy(true);
+              try {
+                if (
+                  await action({
+                    record: {
+                      kind: "todo",
+                      title: quickTitle.trim(),
+                      status: "To Do",
+                      assignee: user().name,
+                      ownerId: user().id,
+                      owner: user().name,
+                      due: today,
+                      urgency: "Auto",
+                    },
+                  })
+                ) {
+                  setQuickTitle("");
+                  setAdding(false);
+                }
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <input
+              autoFocus
+              required
+              maxLength={300}
+              value={quickTitle}
+              onChange={(e) => setQuickTitle(e.target.value)}
+              placeholder="What needs to happen?"
+              aria-label="New quick to-do"
+            />
+            <button className="primary" disabled={busy || !quickTitle.trim()}>
+              Add
+            </button>
+          </form>
+        )}
+        <div className="check-card-body">
+          {quick.filter((t: any) => t.status !== "Complete").map(taskRow)}
+          {!quick.some((t: any) => t.status !== "Complete") && (
+            <div className="check-card-empty">
+              <CheckCheck size={22} />
+              <p>No quick to-dos yet. Add one with the +.</p>
+            </div>
+          )}
+          {quickDone &&
+            quick.filter((t: any) => t.status === "Complete").map(taskRow)}
+        </div>
+        <div className="check-card-footer">
+          <span>
+            {quick.filter((t: any) => t.status !== "Complete").length} open
+          </span>
+          <button onClick={() => setQuickDone(!quickDone)}>
+            {quickDone ? "Hide completed" : "Completed"} (
+            {quick.filter((t: any) => t.status === "Complete").length})
+          </button>
+        </div>
+      </div>
+      <div className="card checklist-card">
+        <div className="check-card-heading">
+          <h2>Upcoming Event Tasks</h2>
+          <button
+            type="button"
+            className="event-calendar-link"
+            aria-label="Open Content Calendar"
+            title="Open Content Calendar"
+            onClick={onCalendar}
+          >
+            <CalendarDays size={18} />
+          </button>
+        </div>
+        <div className="check-card-body event-checklists">
+          {campaigns.map((record: any) => {
+            const tasks = sortedTodos(
+              (record.tasks || []).map((t: any, index: number) => ({
+                ...t,
+                record,
+                index,
+              })),
+              today,
+            );
+            const open = tasks.filter(
+                (t) => t.status !== "Complete" && t.status !== "Not Verified",
+              ),
+              unverified = tasks.filter((t) => t.status === "Not Verified"),
+              complete = tasks.filter((t) => t.status === "Complete");
+            return (
+              <section className="event-task-group" key={record.id}>
+                <button
+                  className="event-task-heading"
+                  onClick={() => onOpen(record)}
+                >
+                  <div>
+                    <b>{record.title}</b>
+                    <small>
+                      {record.date || record.dateText || "Date to be confirmed"}{" "}
+                      · {open.length} open
+                    </small>
+                  </div>
+                  <ChevronRight size={16} />
+                </button>
+                {open.map(taskRow)}
+                {!!unverified.length && (
+                  <details className="historical-task-checks">
+                    <summary>
+                      {unverified.length} historical tasks · verify completion
+                    </summary>
+                    {unverified.map(taskRow)}
+                  </details>
+                )}
+                {eventDone && complete.map(taskRow)}
+                {!tasks.length && (
+                  <p className="group-no-tasks">
+                    Add checklist items inside this campaign.
+                  </p>
+                )}
+              </section>
+            );
+          })}
+          {!campaigns.length && (
+            <div className="check-card-empty">
+              <CalendarDays size={22} />
+              <p>
+                Event and campaign checklists will appear here when created.
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="check-card-footer">
+          <span>
+            {
+              eventTasks.filter(
+                (t: any) =>
+                  t.status !== "Complete" && t.status !== "Not Verified",
+              ).length
+            }{" "}
+            open
+          </span>
+          <button onClick={() => setEventDone(!eventDone)}>
+            {eventDone ? "Hide completed" : "Completed"} (
+            {eventTasks.filter((t: any) => t.status === "Complete").length})
+          </button>
+        </div>
+      </div>
+      <Dialog.Root
+        open={!!selected}
+        onOpenChange={(open) => {
+          if (!open && !busy) setSelected(null);
+        }}
+      >
+        <Dialog.Portal container={portalHost.current}>
+          <Dialog.Overlay className="crop-overlay" />
+          <Dialog.Content className="crop-dialog task-detail-dialog">
+            <div className="crop-heading">
+              <div>
+                <Dialog.Title className="crop-title">
+                  {selected?.title || "Task details"}
+                </Dialog.Title>
+                <Dialog.Description className="crop-description">
+                  {selected?.standalone
+                    ? "Quick to-do"
+                    : selected?.record.title}
+                </Dialog.Description>
+              </div>
+              <Dialog.Close asChild>
+                <button
+                  className="icon"
+                  disabled={busy}
+                  aria-label="Close task details"
+                >
+                  <X size={19} />
+                </button>
+              </Dialog.Close>
+            </div>
+            {selected && (
+              <>
+                <div className="task-communication">
+                  <b>Acknowledge this task</b>
+                  <TeamStatus
+                    record={
+                      records.find((r: any) => r.id === selected.record.id) ||
+                      selected.record
+                    }
+                    taskIndex={selected.standalone ? undefined : selected.index}
+                  />
+                </div>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const values = selected.standalone
+                      ? { ...draft }
+                      : { ...draft, newTitle: draft.title, title: undefined };
+                    if (!selected.standalone) delete values.title;
+                    if (await update(selected, values)) {
+                      setSelected(null);
+                    }
+                  }}
+                >
+                  <label>
+                    Task
+                    <input
+                      required
+                      maxLength={300}
+                      value={draft.title}
+                      onChange={(e) =>
+                        setDraft({ ...draft, title: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Instructions / notes
+                    <textarea
+                      rows={4}
+                      placeholder="Add the details needed to get this done."
+                      value={draft.notes}
+                      onChange={(e) =>
+                        setDraft({ ...draft, notes: e.target.value })
+                      }
+                    />
+                  </label>
+                  {!selected.standalone && selected.record.description && (
+                    <p className="task-campaign-context">
+                      {selected.record.description}
+                    </p>
+                  )}
+                  <div className="task-detail-dates">
+                    <label>
+                      Due date
+                      <input
+                        type="date"
+                        value={draft.due}
+                        onChange={(e) =>
+                          setDraft({ ...draft, due: e.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Event date
+                      <input
+                        type="date"
+                        value={draft.eventDate}
+                        onChange={(e) =>
+                          setDraft({ ...draft, eventDate: e.target.value })
+                        }
+                      />
+                    </label>
+                  </div>
+                  <label>Assigned to</label>
+                  <div className="task-choice-buttons">
+                    {["", "McKenzie", "Trav"].map((s) => (
+                      <button
+                        type="button"
+                        key={s}
+                        className={draft.assignee === s ? "chosen" : ""}
+                        onClick={() => setDraft({ ...draft, assignee: s })}
+                      >
+                        {s || "Unassigned"}
+                      </button>
+                    ))}
+                  </div>
+                  <label>Urgency</label>
+                  <div className="task-choice-buttons">
+                    {["Auto", "Urgent", "High", "Normal", "Low"].map((s) => (
+                      <button
+                        type="button"
+                        key={s}
+                        className={draft.urgency === s ? "chosen" : ""}
+                        onClick={() => setDraft({ ...draft, urgency: s })}
+                      >
+                        {urgencyLabel[s]}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="crop-actions">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        update(selected, {
+                          status:
+                            selected.status === "Complete"
+                              ? "To Do"
+                              : "Complete",
+                        })
+                      }
+                    >
+                      <CheckCheck size={16} />
+                      {selected.status === "Complete"
+                        ? "Mark not done"
+                        : "Mark completed"}
+                    </button>
+                    <button className="primary" disabled={busy}>
+                      Save details
+                    </button>
+                  </div>
+                </form>
+                {!selected.standalone && (
+                  <button
+                    className="open-campaign-checklist"
+                    onClick={() => {
+                      setSelected(null);
+                      onOpen(selected.record);
+                    }}
+                  >
+                    Open campaign checklist <ChevronRight size={15} />
+                  </button>
+                )}
+              </>
+            )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+    </section>
+  );
 }

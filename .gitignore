@@ -64,3 +64,5 @@ next-env.d.ts
 *.tsbuildinfo
 /pnpm-lock.yaml
 /pnpm-workspace.yaml
+.tools/
+checks/.workflow-bundle.mjs

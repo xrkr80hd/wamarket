@@ -1,16 +1,559 @@
-'use client';
-import {useState} from 'react';
-import {Dialog} from 'radix-ui';
-import {Plus,ChevronLeft,ChevronRight,X} from 'lucide-react';
-import {chicagoDate} from '../lib/daily-quotes';
-import {weekStart,shiftDate,plannerChannels,availableOn,contentOn} from '../lib/planner';
-const people=[{key:'owner',name:'McKenzie Hutson',short:'McKenzie',initials:'MH'},{key:'coordinator',name:'Travis Wilkinson',short:'Trav',initials:'TW'}];
-const dayNames=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-const dateLabel=(d:string)=>new Date(d+'T12:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
-export default function ContentWeek({records,members,onSave,onOpen,onTask}:any){const [week,setWeek]=useState(()=>weekStart(chicagoDate())),[draft,setDraft]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');const days=Array.from({length:7},(_,i)=>shiftDate(week,i));const campaigns=records.filter((r:any)=>['event','project'].includes(r.kind)&&!r.archived);
- function edit(record:any){setError('');setDraft({...record,channels:record.kind==='content'?(record.channels?.length?record.channels:[record.platform||'Other']):record.channels})}
- function add(date:string,channel:string){edit({kind:'content',title:'',date,channels:[channel],owner:'McKenzie',status:'Planning',approval:'Pending',notes:'',project:''})}
- const field=(k:string,v:any)=>setDraft({...draft,[k]:v});
- async function save(e:any){e.preventDefault();setBusy(true);try{if(await onSave({record:draft.kind==='content'?{...draft,platform:draft.channels?.[0]||'Other'}:draft}))setDraft(null);else setError('Could not save. Check the workspace message and try again.')}finally{setBusy(false)}}
- return <section className="content-week card"><div className="week-heading"><div><h2>Weekly planner</h2><small>America/Chicago · {dateLabel(days[0])}–{dateLabel(days[6])}, {week.slice(0,4)}</small></div><div className="week-controls"><button aria-label="Previous week" onClick={()=>setWeek(shiftDate(week,-7))}><ChevronLeft size={16}/></button><button onClick={()=>setWeek(weekStart(chicagoDate()))}>This week</button><input aria-label="Choose week" type="date" value={week} onChange={e=>e.target.value&&setWeek(weekStart(e.target.value))}/><button aria-label="Next week" onClick={()=>setWeek(shiftDate(week,7))}><ChevronRight size={16}/></button></div></div><div className="week-scroll" tabIndex={0} aria-label="Weekly planner, scroll horizontally to see every day"><table className="week-matrix"><thead><tr><th scope="col">Team & channel</th>{days.map((d,i)=><th scope="col" className={d===chicagoDate()?'is-today':''} key={d}>{dayNames[i]}<small>{dateLabel(d)}</small></th>)}</tr></thead><tbody>{people.map(p=>{const member=members.find((m:any)=>m.role===p.key);return <tr className="availability-row" key={p.key}><th scope="row"><span className="planner-person">{member?.avatar_key?<img src={'/api/profile-photo?id='+member.id} alt=""/>:<span>{p.initials}</span>}<b>{p.short}</b></span></th>{days.map(d=>{const schedules=records.filter((r:any)=>availableOn(r,p.key,d));const assigned=records.filter((r:any)=>contentOn(r,'Other',d)||r.kind==='content'&&!r.archived&&r.date===d).filter((r:any)=>[p.short,p.name,member?.id].filter(Boolean).includes(r.owner));return <td key={d}>{schedules.map((r:any)=><button key={r.id} className={'availability-status '+r.availability.replaceAll(' ','-').toLowerCase()} onClick={()=>edit(r)}><b>{r.availability}</b>{r.notes&&<small>{r.notes}</small>}</button>)}{!schedules.length&&<span className="availability-unset">Not set</span>}{assigned.length>0&&<small className="assigned-count">{assigned.length} deliverable{assigned.length===1?'':'s'}</small>}<button className="cell-add" aria-label={'Set '+p.short+' availability on '+d} onClick={()=>edit({kind:'availability',title:p.short+' availability',person:p.key,availability:'In office',date:d,endDate:d,notes:''})}><Plus size={13}/></button></td>})}</tr>})}{plannerChannels.map(channel=><tr key={channel}><th scope="row">{channel}</th>{days.map(d=><td key={d} className={d===chicagoDate()?'today-cell':''}>{records.filter((r:any)=>contentOn(r,channel,d)).map((r:any)=><button key={r.id} className="planned-post" onClick={()=>edit(r)}><b>{r.title}</b><small>{r.time||''}{r.owner?' · '+r.owner:''}</small><small>{r.status}</small></button>)}{channel==='Other'&&campaigns.flatMap((r:any)=>(r.tasks||[]).map((t:any,index:number)=>({r,t,index}))).filter(({t}:any)=>t.due===d).map(({r,t,index}:any)=><div className={'planned-task '+(t.status==='Complete'?'done':'')} key={r.id+index}><input type="checkbox" aria-label={'Complete '+t.title} checked={t.status==='Complete'} disabled={busy} onChange={async()=>{setBusy(true);await onTask({action:'task',recordId:r.id,index,title:t.title,status:t.status==='Complete'?'To Do':'Complete',assignee:t.assignee,due:t.due,eventDate:t.eventDate,urgency:t.urgency});setBusy(false)}}/><button onClick={()=>onOpen(r)}><b>{t.title}</b><small>{r.title} · {t.assignee||'Unassigned'}</small></button></div>)}<button className="cell-add" aria-label={'Add '+channel+' post on '+d} onClick={()=>add(d,channel)}><Plus size={13}/></button></td>)}</tr>)}</tbody></table></div><small className="week-hint">Click a post or status to edit. Campaign tasks appear under Other; check them off here.</small><Dialog.Root open={!!draft} onOpenChange={v=>{if(!v&&!busy)setDraft(null)}}><Dialog.Portal><Dialog.Overlay className="crop-overlay"/><Dialog.Content className="crop-dialog planner-dialog"><div className="crop-heading"><Dialog.Title className="crop-title">{draft?.kind==='availability'?'Team availability':'Plan content'}</Dialog.Title><Dialog.Close asChild><button aria-label="Close planner editor" disabled={busy}><X size={17}/></button></Dialog.Close></div><Dialog.Description className="crop-description">{draft?.kind==='availability'?'Set a date range and leave a note for the team.':'Save the topic, day and person leading this deliverable.'}</Dialog.Description>{draft&&<form onSubmit={save}>{draft.kind==='availability'?<><label>Team member<select value={draft.person} onChange={e=>field('person',e.target.value)}>{people.map(p=><option value={p.key} key={p.key}>{p.name}</option>)}</select></label><label>Status<select value={draft.availability} onChange={e=>field('availability',e.target.value)}>{['In office','Working from home','On location','Out of office','Unavailable'].map(s=><option key={s}>{s}</option>)}</select></label><div className="planner-fields"><label>From<input required type="date" value={draft.date} onChange={e=>setDraft({...draft,date:e.target.value,endDate:draft.endDate<e.target.value?e.target.value:draft.endDate})}/></label><label>Through<input required type="date" min={draft.date} value={draft.endDate} onChange={e=>field('endDate',e.target.value)}/></label></div></>:<><label>Topic / post<input required maxLength={300} value={draft.title} onChange={e=>field('title',e.target.value)}/></label><div className="planner-fields"><label>Date<input required type="date" value={draft.date||''} onChange={e=>field('date',e.target.value)}/></label><label>Time (Central)<input type="time" value={draft.time||''} onChange={e=>field('time',e.target.value)}/></label></div><label>Channels<div className="planner-channel-buttons">{plannerChannels.map(c=><button type="button" aria-pressed={(draft.channels||[]).includes(c)} key={c} className={(draft.channels||[]).includes(c)?'chosen':''} onClick={()=>field('channels',(draft.channels||[]).includes(c)?draft.channels.filter((x:string)=>x!==c):[...(draft.channels||[]),c])}>{c}</button>)}</div></label><label>Lead<select value={draft.owner||''} onChange={e=>field('owner',e.target.value)}><option value="">Unassigned</option>{people.map(p=><option key={p.key} value={p.short}>{p.name}</option>)}</select></label><label>Campaign<select value={draft.project||''} onChange={e=>field('project',e.target.value)}><option value="">Standalone content</option>{campaigns.map((r:any)=><option key={r.id} value={r.id}>{r.title}</option>)}</select></label><small>Workflow status: {draft.status}. Approval and publishing controls remain in the content card.</small></>}<label>{draft.kind==='availability'?'Team note':'Copy / instructions'}<textarea rows={3} maxLength={4000} value={draft.notes||''} onChange={e=>field('notes',e.target.value)}/></label>{error&&<p role="alert" className="crop-error">{error}</p>}<div className="crop-actions">{draft.id&&<button type="button" disabled={busy} onClick={async()=>{setBusy(true);if(await onSave({action:'delete',id:draft.id}))setDraft(null);setBusy(false)}}>Remove from planner</button>}<button type="button" disabled={busy} onClick={()=>setDraft(null)}>Cancel</button><button className="primary" disabled={busy}>{busy?'Saving…':'Save'}</button></div></form>}</Dialog.Content></Dialog.Portal></Dialog.Root></section>
+"use client";
+import { useState } from "react";
+import { Dialog } from "radix-ui";
+import { Plus, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { chicagoDate } from "../lib/daily-quotes";
+import {
+  weekStart,
+  shiftDate,
+  plannerChannels,
+  availableOn,
+  contentOn,
+} from "../lib/planner";
+const people = [
+  { key: "owner", name: "McKenzie Hutson", short: "McKenzie", initials: "MH" },
+  {
+    key: "coordinator",
+    name: "Travis Wilkinson",
+    short: "Trav",
+    initials: "TW",
+  },
+];
+const dayNames = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+const dateLabel = (d: string) =>
+  new Date(d + "T12:00:00Z").toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+export default function ContentWeek({
+  records,
+  members,
+  onSave,
+  onOpen,
+  onTask,
+}: any) {
+  const [week, setWeek] = useState(() => weekStart(chicagoDate())),
+    [draft, setDraft] = useState<any>(null),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const days = Array.from({ length: 7 }, (_, i) => shiftDate(week, i));
+  const campaigns = records.filter(
+    (r: any) => ["event", "project"].includes(r.kind) && !r.archived,
+  );
+  function edit(record: any) {
+    setError("");
+    setDraft({
+      ...record,
+      channels:
+        record.kind === "content"
+          ? record.channels?.length
+            ? record.channels
+            : [record.platform || "Other"]
+          : record.channels,
+    });
+  }
+  function add(date: string, channel: string) {
+    edit({
+      kind: "content",
+      title: "",
+      date,
+      channels: [channel],
+      owner: "McKenzie",
+      status: "Planning",
+      approval: "Pending",
+      notes: "",
+      project: "",
+    });
+  }
+  const field = (k: string, v: any) => setDraft({ ...draft, [k]: v });
+  async function save(e: any) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      if (
+        await onSave({
+          record:
+            draft.kind === "content"
+              ? { ...draft, platform: draft.channels?.[0] || "Other" }
+              : draft,
+        })
+      )
+        setDraft(null);
+      else
+        setError("Could not save. Check the workspace message and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="content-week card">
+      <div className="week-heading">
+        <div>
+          <h2>Weekly planner</h2>
+          <small>
+            America/Chicago · {dateLabel(days[0])}–{dateLabel(days[6])},{" "}
+            {week.slice(0, 4)}
+          </small>
+        </div>
+        <div className="week-controls">
+          <button
+            aria-label="Previous week"
+            onClick={() => setWeek(shiftDate(week, -7))}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button onClick={() => setWeek(weekStart(chicagoDate()))}>
+            This week
+          </button>
+          <input
+            aria-label="Choose week"
+            type="date"
+            value={week}
+            onChange={(e) =>
+              e.target.value && setWeek(weekStart(e.target.value))
+            }
+          />
+          <button
+            aria-label="Next week"
+            onClick={() => setWeek(shiftDate(week, 7))}
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+      <div
+        className="week-scroll"
+        tabIndex={0}
+        aria-label="Weekly planner, scroll horizontally to see every day"
+      >
+        <table className="week-matrix">
+          <thead>
+            <tr>
+              <th scope="col">Team & channel</th>
+              {days.map((d, i) => (
+                <th
+                  scope="col"
+                  className={d === chicagoDate() ? "is-today" : ""}
+                  key={d}
+                >
+                  {dayNames[i]}
+                  <small>{dateLabel(d)}</small>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {people.map((p) => {
+              const member = members.find((m: any) => m.role === p.key);
+              return (
+                <tr className="availability-row" key={p.key}>
+                  <th scope="row">
+                    <span className="planner-person">
+                      {member?.avatar_key ? (
+                        <img
+                          src={"/api/profile-photo?id=" + member.id}
+                          alt=""
+                        />
+                      ) : (
+                        <span>{p.initials}</span>
+                      )}
+                      <b>{p.short}</b>
+                    </span>
+                  </th>
+                  {days.map((d) => {
+                    const schedules = records.filter((r: any) =>
+                      availableOn(r, p.key, d),
+                    );
+                    const assigned = records
+                      .filter(
+                        (r: any) =>
+                          contentOn(r, "Other", d) ||
+                          (r.kind === "content" && !r.archived && r.date === d),
+                      )
+                      .filter((r: any) =>
+                        [p.short, p.name, member?.id]
+                          .filter(Boolean)
+                          .includes(r.owner),
+                      );
+                    return (
+                      <td key={d}>
+                        {schedules.map((r: any) => (
+                          <button
+                            key={r.id}
+                            className={
+                              "availability-status " +
+                              r.availability.replaceAll(" ", "-").toLowerCase()
+                            }
+                            onClick={() => edit(r)}
+                          >
+                            <b>{r.availability}</b>
+                            {r.notes && <small>{r.notes}</small>}
+                          </button>
+                        ))}
+                        {!schedules.length && (
+                          <span className="availability-unset">Not set</span>
+                        )}
+                        {assigned.length > 0 && (
+                          <small className="assigned-count">
+                            {assigned.length} deliverable
+                            {assigned.length === 1 ? "" : "s"}
+                          </small>
+                        )}
+                        <button
+                          className="cell-add"
+                          aria-label={
+                            "Set " + p.short + " availability on " + d
+                          }
+                          onClick={() =>
+                            edit({
+                              kind: "availability",
+                              title: p.short + " availability",
+                              person: p.key,
+                              availability: "In office",
+                              date: d,
+                              endDate: d,
+                              notes: "",
+                            })
+                          }
+                        >
+                          <Plus size={13} />
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+            {plannerChannels.map((channel) => (
+              <tr key={channel}>
+                <th scope="row">{channel}</th>
+                {days.map((d) => (
+                  <td
+                    key={d}
+                    className={d === chicagoDate() ? "today-cell" : ""}
+                  >
+                    {records
+                      .filter((r: any) => contentOn(r, channel, d))
+                      .map((r: any) => (
+                        <button
+                          key={r.id}
+                          className="planned-post"
+                          onClick={() => edit(r)}
+                        >
+                          <b>{r.title}</b>
+                          <small>
+                            {r.time || ""}
+                            {r.owner ? " · " + r.owner : ""}
+                          </small>
+                          <small>{r.status}</small>
+                        </button>
+                      ))}
+                    {channel === "Other" &&
+                      campaigns
+                        .flatMap((r: any) =>
+                          (r.tasks || []).map((t: any, index: number) => ({
+                            r,
+                            t,
+                            index,
+                          })),
+                        )
+                        .filter(({ t }: any) => t.due === d)
+                        .map(({ r, t, index }: any) => (
+                          <div
+                            className={
+                              "planned-task " +
+                              (t.status === "Complete" ? "done" : "")
+                            }
+                            key={r.id + index}
+                          >
+                            <input
+                              type="checkbox"
+                              aria-label={"Complete " + t.title}
+                              checked={t.status === "Complete"}
+                              disabled={busy}
+                              onChange={async () => {
+                                setBusy(true);
+                                await onTask({
+                                  action: "task",
+                                  recordId: r.id,
+                                  index,
+                                  title: t.title,
+                                  status:
+                                    t.status === "Complete"
+                                      ? "To Do"
+                                      : "Complete",
+                                  assignee: t.assignee,
+                                  due: t.due,
+                                  eventDate: t.eventDate,
+                                  urgency: t.urgency,
+                                });
+                                setBusy(false);
+                              }}
+                            />
+                            <button onClick={() => onOpen(r)}>
+                              <b>{t.title}</b>
+                              <small>
+                                {r.title} · {t.assignee || "Unassigned"}
+                              </small>
+                            </button>
+                          </div>
+                        ))}
+                    <button
+                      className="cell-add"
+                      aria-label={"Add " + channel + " post on " + d}
+                      onClick={() => add(d, channel)}
+                    >
+                      <Plus size={13} />
+                    </button>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <small className="week-hint">
+        Click a post or status to edit. Campaign tasks appear under Other; check
+        them off here.
+      </small>
+      <Dialog.Root
+        open={!!draft}
+        onOpenChange={(v) => {
+          if (!v && !busy) setDraft(null);
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="crop-overlay" />
+          <Dialog.Content className="crop-dialog planner-dialog">
+            <div className="crop-heading">
+              <Dialog.Title className="crop-title">
+                {draft?.kind === "availability"
+                  ? "Team availability"
+                  : "Plan content"}
+              </Dialog.Title>
+              <Dialog.Close asChild>
+                <button aria-label="Close planner editor" disabled={busy}>
+                  <X size={17} />
+                </button>
+              </Dialog.Close>
+            </div>
+            <Dialog.Description className="crop-description">
+              {draft?.kind === "availability"
+                ? "Set a date range and leave a note for the team."
+                : "Save the topic, day and person leading this deliverable."}
+            </Dialog.Description>
+            {draft && (
+              <form onSubmit={save}>
+                {draft.kind === "availability" ? (
+                  <>
+                    <label>
+                      Team member
+                      <select
+                        value={draft.person}
+                        onChange={(e) => field("person", e.target.value)}
+                      >
+                        {people.map((p) => (
+                          <option value={p.key} key={p.key}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Status
+                      <select
+                        value={draft.availability}
+                        onChange={(e) => field("availability", e.target.value)}
+                      >
+                        {[
+                          "In office",
+                          "Working from home",
+                          "On location",
+                          "Out of office",
+                          "Unavailable",
+                        ].map((s) => (
+                          <option key={s}>{s}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="planner-fields">
+                      <label>
+                        From
+                        <input
+                          required
+                          type="date"
+                          value={draft.date}
+                          onChange={(e) =>
+                            setDraft({
+                              ...draft,
+                              date: e.target.value,
+                              endDate:
+                                draft.endDate < e.target.value
+                                  ? e.target.value
+                                  : draft.endDate,
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Through
+                        <input
+                          required
+                          type="date"
+                          min={draft.date}
+                          value={draft.endDate}
+                          onChange={(e) => field("endDate", e.target.value)}
+                        />
+                      </label>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <label>
+                      Topic / post
+                      <input
+                        required
+                        maxLength={300}
+                        value={draft.title}
+                        onChange={(e) => field("title", e.target.value)}
+                      />
+                    </label>
+                    <div className="planner-fields">
+                      <label>
+                        Date
+                        <input
+                          required
+                          type="date"
+                          value={draft.date || ""}
+                          onChange={(e) => field("date", e.target.value)}
+                        />
+                      </label>
+                      <label>
+                        Time (Central)
+                        <input
+                          type="time"
+                          value={draft.time || ""}
+                          onChange={(e) => field("time", e.target.value)}
+                        />
+                      </label>
+                    </div>
+                    <label>
+                      Channels
+                      <div className="planner-channel-buttons">
+                        {plannerChannels.map((c) => (
+                          <button
+                            type="button"
+                            aria-pressed={(draft.channels || []).includes(c)}
+                            key={c}
+                            className={
+                              (draft.channels || []).includes(c) ? "chosen" : ""
+                            }
+                            onClick={() =>
+                              field(
+                                "channels",
+                                (draft.channels || []).includes(c)
+                                  ? draft.channels.filter(
+                                      (x: string) => x !== c,
+                                    )
+                                  : [...(draft.channels || []), c],
+                              )
+                            }
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                    </label>
+                    <label>
+                      Lead
+                      <select
+                        value={draft.owner || ""}
+                        onChange={(e) => field("owner", e.target.value)}
+                      >
+                        <option value="">Unassigned</option>
+                        {people.map((p) => (
+                          <option key={p.key} value={p.short}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Campaign
+                      <select
+                        value={draft.project || ""}
+                        onChange={(e) => field("project", e.target.value)}
+                      >
+                        <option value="">Standalone content</option>
+                        {campaigns.map((r: any) => (
+                          <option key={r.id} value={r.id}>
+                            {r.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <small>
+                      Workflow status: {draft.status}. Approval and publishing
+                      controls remain in the content card.
+                    </small>
+                  </>
+                )}
+                <label>
+                  {draft.kind === "availability"
+                    ? "Team note"
+                    : "Copy / instructions"}
+                  <textarea
+                    rows={3}
+                    maxLength={4000}
+                    value={draft.notes || ""}
+                    onChange={(e) => field("notes", e.target.value)}
+                  />
+                </label>
+                {error && (
+                  <p role="alert" className="crop-error">
+                    {error}
+                  </p>
+                )}
+                <div className="crop-actions">
+                  {draft.id && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={async () => {
+                        setBusy(true);
+                        if (await onSave({ action: "delete", id: draft.id }))
+                          setDraft(null);
+                        setBusy(false);
+                      }}
+                    >
+                      Remove from planner
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setDraft(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button className="primary" disabled={busy}>
+                    {busy ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+    </section>
+  );
 }

@@ -1,8 +1,171 @@
-'use client';
-import {useState} from 'react';
-import {X} from 'lucide-react';
-import {apiFetch,apiJSON} from '../lib/api-response';
-import {suggestedName} from '../lib/media';
-export default function MediaDetails({asset,records,onSave,onClose,onDeleted}:any){const [name,setName]=useState(asset.title),[label,setLabel]=useState(asset.assetLabel||''),[destination,setDestination]=useState(asset.project||asset.folder||''),[busy,setBusy]=useState(false),[error,setError]=useState('');const folders=records.filter((r:any)=>['project','event','folder'].includes(r.kind)&&!r.archived);const target=folders.find((r:any)=>r.id===destination);
- return <div className="overlay media-details-overlay"><section className="modal media-simple-modal" role="dialog" aria-modal="true" aria-label="Media details"><div className="modalhead"><h2>Media details</h2><button aria-label="Close media details" onClick={onClose}><X/></button></div>{asset.type?.startsWith('image/')?<img className="assetpreview" src={'/api/files?id='+asset.id} alt={name}/>:asset.type?.startsWith('video/')?<video className="assetpreview" controls src={'/api/files?id='+asset.id}/>:asset.type?.startsWith('audio/')?<audio controls src={'/api/files?id='+asset.id}/>:null}<form onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{const ok=await onSave({record:{...asset,title:name.trim(),assetLabel:label,project:target&&target.kind!=='folder'?destination:'',folder:target?.kind==='folder'?destination:''}});if(ok)onClose();else setError('Could not save. Please try again.')}finally{setBusy(false)}}}><label>Name<input required maxLength={300} value={name} onChange={e=>setName(e.target.value)}/></label><label>{destination?'Use in this project':'Label (optional)'}<input list="asset-labels" value={label} onChange={e=>{setLabel(e.target.value);if(target&&e.target.value)setName(suggestedName(target.title,e.target.value))}} placeholder="Logo, Flyer, Crowd arrival…"/><datalist id="asset-labels">{['Logo','Flyer','Theme','Design','Clip','Raw Footage','Final Cut'].map(l=><option key={l} value={l}/>)}</datalist><small>For a project, the name is suggested automatically. You can edit it.</small></label><label>Folder<select value={destination} onChange={e=>{setDestination(e.target.value);const t=folders.find((r:any)=>r.id===e.target.value);if(t&&label)setName(suggestedName(t.title,label))}}><option value="">Unassigned media pool</option>{folders.map((r:any)=><option key={r.id} value={r.id}>{r.title}</option>)}</select></label>{error&&<p role="alert">{error}</p>}<div className="modalactions"><a href={'/api/files?id='+asset.id+'&download=1'}>Download</a><button type="button" onClick={onClose}>Cancel</button><button className="primary" disabled={busy}>{busy?'Saving…':'Save'}</button></div><button className="danger" type="button" disabled={busy} onClick={async()=>{if(!confirm('Permanently delete this media file?'))return;setBusy(true);try{await apiJSON(await apiFetch('/api/files?id='+asset.id,{method:'DELETE'}));await onDeleted();onClose()}catch(e:any){setError(e.message)}finally{setBusy(false)}}}>Delete file</button></form></section></div>
+"use client";
+import { useState } from "react";
+import { X } from "lucide-react";
+import { apiFetch, apiJSON } from "../lib/api-response";
+import { suggestedName } from "../lib/media";
+export default function MediaDetails({
+  asset,
+  records,
+  onSave,
+  onClose,
+  onDeleted,
+}: any) {
+  const [name, setName] = useState(asset.title),
+    [label, setLabel] = useState(asset.assetLabel || ""),
+    [destination, setDestination] = useState(
+      asset.project || asset.folder || "",
+    ),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const folders = records.filter(
+    (r: any) => ["project", "event", "folder"].includes(r.kind) && !r.archived,
+  );
+  const target = folders.find((r: any) => r.id === destination);
+  return (
+    <div className="overlay media-details-overlay">
+      <section
+        className="modal media-simple-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Media details"
+      >
+        <div className="modalhead">
+          <h2>Media details</h2>
+          <button aria-label="Close media details" onClick={onClose}>
+            <X />
+          </button>
+        </div>
+        {asset.type?.startsWith("image/") ? (
+          <img
+            className="assetpreview"
+            src={"/api/files?id=" + asset.id}
+            alt={name}
+          />
+        ) : asset.type?.startsWith("video/") ? (
+          <video
+            className="assetpreview"
+            controls
+            src={"/api/files?id=" + asset.id}
+          />
+        ) : asset.type?.startsWith("audio/") ? (
+          <audio controls src={"/api/files?id=" + asset.id} />
+        ) : null}
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setBusy(true);
+            setError("");
+            try {
+              const ok = await onSave({
+                record: {
+                  ...asset,
+                  title: name.trim(),
+                  assetLabel: label,
+                  project:
+                    target && target.kind !== "folder" ? destination : "",
+                  folder: target?.kind === "folder" ? destination : "",
+                },
+              });
+              if (ok) onClose();
+              else setError("Could not save. Please try again.");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <label>
+            Name
+            <input
+              required
+              maxLength={300}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </label>
+          <label>
+            {destination ? "Use in this project" : "Label (optional)"}
+            <input
+              list="asset-labels"
+              value={label}
+              onChange={(e) => {
+                setLabel(e.target.value);
+                if (target && e.target.value)
+                  setName(suggestedName(target.title, e.target.value));
+              }}
+              placeholder="Logo, Flyer, Crowd arrival…"
+            />
+            <datalist id="asset-labels">
+              {[
+                "Logo",
+                "Flyer",
+                "Theme",
+                "Design",
+                "Clip",
+                "Raw Footage",
+                "Final Cut",
+              ].map((l) => (
+                <option key={l} value={l} />
+              ))}
+            </datalist>
+            <small>
+              For a project, the name is suggested automatically. You can edit
+              it.
+            </small>
+          </label>
+          <label>
+            Folder
+            <select
+              value={destination}
+              onChange={(e) => {
+                setDestination(e.target.value);
+                const t = folders.find((r: any) => r.id === e.target.value);
+                if (t && label) setName(suggestedName(t.title, label));
+              }}
+            >
+              <option value="">Unassigned media pool</option>
+              {folders.map((r: any) => (
+                <option key={r.id} value={r.id}>
+                  {r.title}
+                </option>
+              ))}
+            </select>
+          </label>
+          {error && <p role="alert">{error}</p>}
+          <div className="modalactions">
+            <a href={"/api/files?id=" + asset.id + "&download=1"}>Download</a>
+            <button type="button" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="primary" disabled={busy}>
+              {busy ? "Saving…" : "Save"}
+            </button>
+          </div>
+          <button
+            className="danger"
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              if (!confirm("Permanently delete this media file?")) return;
+              setBusy(true);
+              try {
+                await apiJSON(
+                  await apiFetch("/api/files?id=" + asset.id, {
+                    method: "DELETE",
+                  }),
+                );
+                await onDeleted();
+                onClose();
+              } catch (e: any) {
+                setError(e.message);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Delete file
+          </button>
+        </form>
+      </section>
+    </div>
+  );
 }

@@ -3,7 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Walker Marketing Suite",
-  description: "Walker Automotive creative operations, events and shared media.",
+  description:
+    "Walker Automotive creative operations, events and shared media.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

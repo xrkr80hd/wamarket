@@ -1,5 +1,45 @@
-export function inAssetFolder(a:any,folder:any){return folder.kind==='folder'?a.folder===folder.id:a.project===folder.id}
-export function unassignedAsset(a:any){return a.kind==='asset'&&!a.archived&&!a.project&&!a.folder}
-export function mediaCategory(a:any){return a.type?.startsWith('audio/')?'Audio':a.type?.startsWith('video/')?'Video':'Images'}
-export function suggestedName(project:string,label:string){return (project+' '+label).trim().slice(0,300)}
-export function downloadName(a:any){const extensions:Record<string,string>={'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/svg+xml':'svg','video/mp4':'mp4','video/quicktime':'mov','video/webm':'webm','audio/mpeg':'mp3','audio/wav':'wav','audio/x-wav':'wav','audio/mp4':'m4a','audio/ogg':'ogg','application/pdf':'pdf'};const original=a.originalName||'';const ext=original.match(/\.([a-z0-9]{1,10})$/i)?.[1]||extensions[a.type]||a.title.match(/\.([a-z0-9]{1,10})$/i)?.[1]||'bin';let name=a.title.trim().replace(/[\\/\x00-\x1f<>:"|?*]/g,'_');if(!name.toLowerCase().endsWith('.'+ext.toLowerCase()))name+='.'+ext;return name||'asset.'+ext}
+export function inAssetFolder(a: any, folder: any) {
+  return folder.kind === "folder"
+    ? a.folder === folder.id
+    : a.project === folder.id;
+}
+export function unassignedAsset(a: any) {
+  return a.kind === "asset" && !a.archived && !a.project && !a.folder;
+}
+export function mediaCategory(a: any) {
+  return a.type?.startsWith("audio/")
+    ? "Audio"
+    : a.type?.startsWith("video/")
+      ? "Video"
+      : "Images";
+}
+export function suggestedName(project: string, label: string) {
+  return (project + " " + label).trim().slice(0, 300);
+}
+export function downloadName(a: any) {
+  const extensions: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "image/svg+xml": "svg",
+    "video/mp4": "mp4",
+    "video/quicktime": "mov",
+    "video/webm": "webm",
+    "audio/mpeg": "mp3",
+    "audio/wav": "wav",
+    "audio/x-wav": "wav",
+    "audio/mp4": "m4a",
+    "audio/ogg": "ogg",
+    "application/pdf": "pdf",
+  };
+  const original = a.originalName || "";
+  const ext =
+    original.match(/\.([a-z0-9]{1,10})$/i)?.[1] ||
+    extensions[a.type] ||
+    a.title.match(/\.([a-z0-9]{1,10})$/i)?.[1] ||
+    "bin";
+  let name = a.title.trim().replace(/[\\/\x00-\x1f<>:"|?*]/g, "_");
+  if (!name.toLowerCase().endsWith("." + ext.toLowerCase())) name += "." + ext;
+  return name || "asset." + ext;
+}
