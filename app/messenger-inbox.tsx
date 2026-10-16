@@ -1,3 +1,4 @@
+import { ChatSoundControls, useChatSound } from "./chat-sound";
 import { createPortal } from "react-dom";
 import { useState, useEffect, useRef } from "react";
 import { Button } from "../components/ui/button";
@@ -66,6 +67,7 @@ export default function MessengerInbox({
     },
     [pop],
   );
+  useChatSound(s, me.id);
   const visible = active || floating || !!pop;
   const allowed = s.conversations.filter(
       (c: any) =>
@@ -367,6 +369,7 @@ export default function MessengerInbox({
           <b>COLLAB chat</b>
         </div>
         <div>
+          <ChatSoundControls key={me.id} id={me.id} />
           <Button
             variant="ghost"
             size="icon"
