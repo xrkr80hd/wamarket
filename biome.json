@@ -1,0 +1,44 @@
+{
+  "files": {
+    "includes": [
+      "api/**",
+      "app/**",
+      "lib/**",
+      "supabase/functions/**",
+      "checks/cloud-*.mjs",
+      "!app/api/**",
+      "!app/seed.json"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": false,
+      "correctness": {
+        "noUnreachable": "error",
+        "noUnsafeFinally": "error",
+        "noInvalidBuiltinInstantiation": "error",
+        "noInvalidUseBeforeDeclaration": "error",
+        "useJsxKeyInIterable": "error"
+      },
+      "suspicious": {
+        "noDuplicateObjectKeys": "error",
+        "noDuplicateParameters": "error",
+        "noDoubleEquals": "error"
+      }
+    }
+  },
+  "assist": {
+    "enabled": false
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  }
+}
