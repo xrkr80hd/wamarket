@@ -15,7 +15,10 @@ async function request(route: string, body?: any) {
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   const d = await r.json();
-  if (!r.ok) throw Error(d.error || "Unable to sign in.");
+  if (!r.ok)
+    throw Object.assign(Error(d.error || "Unable to sign in."), {
+      status: r.status,
+    });
   return d;
 }
 export default function AuthGate({ children }: { children: React.ReactNode }) {
@@ -47,6 +50,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     const i = people.findIndex((p) => p.id === u.id);
     if (i < 0) people.push(u);
     else people[i] = u;
+    sessionStorage.removeItem("wam-local-auth");
     sessionStorage.setItem("wam-cloud-auth", u.id);
     setUser(u.id);
     if (currentId.current !== u.id) {
@@ -67,7 +71,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         })
         .catch((e: any) => {
           if (live) {
-            A(null);
+            if (e.status === 401 || e.status === 403) A(null);
             if (!e.message.includes("Sign in")) X(e.message);
           }
         })

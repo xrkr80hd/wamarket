@@ -122,6 +122,48 @@ export function createWorkspaceHandler(env, fetcher = fetch) {
           });
         return c[0].data;
       }
+      if (endpoint === "drive-config") {
+        const bridge = req.headers.get("X-Drive-Bridge") || "";
+        const digest = Array.from(
+          new Uint8Array(
+            await crypto.subtle.digest(
+              "SHA-256",
+              new TextEncoder().encode(bridge),
+            ),
+          ),
+        )
+          .map((x) => x.toString(16).padStart(2, "0"))
+          .join("");
+        if (
+          digest !==
+          "eb1b20035497dd13cff53b4f0f9b84993cf6f1366996755977df916a29676f34"
+        )
+          return send(403, { error: "Server connection required." });
+        if (req.method === "GET") {
+          const rows = await api(
+            "/rest/v1/wamarket_integrations?provider=eq.google-drive&select=data",
+          );
+          return send(200, { data: rows[0]?.data || null });
+        }
+        if (me.email?.toLowerCase() !== MASTER)
+          return send(403, {
+            error: "Only the master administrator can connect storage.",
+          });
+        const body = await req.json();
+        if (typeof body.encrypted !== "string" || body.encrypted.length > 30000)
+          return send(400, { error: "Invalid connection." });
+        await api(
+          "/rest/v1/wamarket_integrations?on_conflict=provider",
+          "POST",
+          {
+            provider: "google-drive",
+            data: { encrypted: body.encrypted },
+            updated_at: new Date().toISOString(),
+          },
+          { Prefer: "resolution=merge-duplicates" },
+        );
+        return send(200, { ok: true });
+      }
       if (req.method === "GET" && endpoint === "state") {
         const rows = await api(
           "/rest/v1/wamarket_records?select=id,data,version&limit=1000",
@@ -211,6 +253,12 @@ export function createWorkspaceHandler(env, fetcher = fetch) {
         const r = rows[0]?.data;
         if (!r || !readable(r) || !r.storage)
           return send(404, { error: "Media not found" });
+        if (r.storage.provider === "gdrive")
+          return send(200, {
+            provider: "gdrive",
+            fileId: r.storage.fileId,
+            assetId: r.id,
+          });
         const signed = await api(
           "/storage/v1/object/sign/" + r.storage.bucket + "/" + r.storage.path,
           "POST",
@@ -322,7 +370,32 @@ export function createWorkspaceHandler(env, fetcher = fetch) {
         if (!["Revision", old.data.status].includes(r.status))
           return send(403, { error: "Q/A cannot approve videos." });
       }
-      if (r.storage) {
+      if (r.storage?.provider === "gdrive") {
+        const digest = Array.from(
+          new Uint8Array(
+            await crypto.subtle.digest(
+              "SHA-256",
+              new TextEncoder().encode(req.headers.get("X-Drive-Bridge") || ""),
+            ),
+          ),
+        )
+          .map((x) => x.toString(16).padStart(2, "0"))
+          .join("");
+        if (
+          digest !==
+          "eb1b20035497dd13cff53b4f0f9b84993cf6f1366996755977df916a29676f34"
+        )
+          return send(403, {
+            error: "Drive uploads must be verified by the website.",
+          });
+        if (
+          old &&
+          JSON.stringify(old.data.storage) !== JSON.stringify(r.storage)
+        )
+          return send(403, {
+            error: "The original media file cannot be replaced here.",
+          });
+      } else if (r.storage) {
         if (
           !["wamarket-videos", "wamarket-images", "wamarket-audio"].includes(
             r.storage.bucket,

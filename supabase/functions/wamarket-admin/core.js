@@ -136,14 +136,29 @@ export function createAdminHandler(env, fetcher = fetch) {
         return send(400, {
           error: "Use a password of at least 12 characters.",
         });
-      let prior;
+      let prior,
+        adopted = false;
+      if (!b.id) {
+        for (let page = 1; page <= 100; page++) {
+          const data = await auth("admin/users?page=" + page + "&per_page=100");
+          const existing = data.users.find(
+            (u) => u.email?.toLowerCase() === b.email.trim().toLowerCase(),
+          );
+          if (existing) {
+            b.id = existing.id;
+            adopted = true;
+            break;
+          }
+          if (data.users.length < 100) break;
+        }
+      }
       if (b.id) {
         prior = await auth("admin/users/" + encodeURIComponent(b.id));
         if (prior.email?.toLowerCase() === MASTER)
           return send(403, {
             error: "The master administrator cannot be modified here.",
           });
-        if (prior.app_metadata?.wamarket_access !== true)
+        if (!adopted && prior.app_metadata?.wamarket_access !== true)
           return send(403, { error: "This account is outside Walker Suite." });
         if (prior.email.toLowerCase() !== b.email.trim().toLowerCase())
           return send(400, { error: "Email changes are not supported." });

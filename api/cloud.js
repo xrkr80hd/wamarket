@@ -1,3 +1,4 @@
+import { driveUpload, verifyDriveAsset } from "../lib/server-drive.js";
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   const url = process.env.SUPABASE_URL,
@@ -28,6 +29,15 @@ export default async function handler(req, res) {
   )
     return res.status(404).json({ error: "Not found" });
   try {
+    const body =
+      typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
+    const bearer = decodeURIComponent(token);
+    if (route === "media-upload" && req.method === "POST") {
+      const drive = await driveUpload(bearer, body);
+      if (drive) return res.json(drive);
+    }
+    if (route === "record" && body.record?.storage?.provider === "gdrive")
+      await verifyDriveAsset(bearer, body.record);
     const r = await fetch(
       url + "/functions/v1/wamarket-workspace?route=" + route,
       {
@@ -37,6 +47,9 @@ export default async function handler(req, res) {
           Authorization: "Bearer " + decodeURIComponent(token),
           "Content-Type": "application/json",
           "X-Wam-User": req.headers["x-wam-user"] || "",
+          ...(body.record?.storage?.provider === "gdrive"
+            ? { "X-Drive-Bridge": process.env.DRIVE_BRIDGE_SECRET || "" }
+            : {}),
         },
         ...(req.method === "POST"
           ? {
@@ -48,10 +61,15 @@ export default async function handler(req, res) {
           : {}),
       },
     );
-    return res.status(r.status).json(await r.json());
-  } catch {
-    return res
-      .status(502)
-      .json({ error: "Workspace service unavailable. Try again." });
+    const data = await r.json();
+    if (route === "media-read" && data.provider === "gdrive")
+      return res.json({
+        url: "/api/drive?route=file&id=" + encodeURIComponent(body.id),
+      });
+    return res.status(r.status).json(data);
+  } catch (e) {
+    return res.status(e.status || 502).json({
+      error: e.message || "Workspace service unavailable. Try again.",
+    });
   }
 }

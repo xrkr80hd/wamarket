@@ -198,7 +198,13 @@ export async function uploadCloudFile(file: File, meta: any = {}) {
   const form = new FormData();
   form.append("cacheControl", "3600");
   form.append("", file);
-  const r = await fetch(signed.uploadURL, { method: "PUT", body: form });
+  const r = await fetch(signed.uploadURL, {
+    method: "PUT",
+    body: signed.provider === "gdrive" ? file : form,
+    ...(signed.provider === "gdrive"
+      ? { headers: { "Content-Type": file.type } }
+      : {}),
+  });
   if (!r.ok) {
     const e = await r.json().catch(() => ({}));
     throw Error(
@@ -207,6 +213,7 @@ export async function uploadCloudFile(file: File, meta: any = {}) {
         "Media upload failed. Check the file size allowed by your Supabase plan.",
     );
   }
+  const uploaded = signed.provider === "gdrive" ? await r.json() : null;
   return {
     id: signed.id,
     kind: "asset",
@@ -217,7 +224,10 @@ export async function uploadCloudFile(file: File, meta: any = {}) {
     status: "Draft",
     ...meta,
     privateMembers: signed.privateMembers,
-    storage: { bucket: signed.bucket, path: signed.path },
+    storage:
+      signed.provider === "gdrive"
+        ? { provider: "gdrive", fileId: uploaded.id, folderId: signed.folderId }
+        : { bucket: signed.bucket, path: signed.path },
     uploadedById: user().id,
   };
 }
