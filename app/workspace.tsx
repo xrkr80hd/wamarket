@@ -1,6 +1,8 @@
 import { roleLabel, personalRecords } from "../lib/dashboard";
 import LocationBadge from "./location-badge";
 import SiteTour from "./site-tour";
+import QuickNote from "./quick-note";
+import NotificationCenter from "./notification-center";
 import { sectionGuide, toolbarGuide } from "../lib/site-guide";
 import { brandStyle, folderBrand } from "../lib/location-branding";
 import QuickIdeas, { QuickIdeasNotice } from "./quick-ideas";
@@ -186,6 +188,8 @@ export default function Workspace() {
   const [chatOpen, setChatOpen] = useState(false),
     [chatUnread, setChatUnread] = useState(0),
     [chatToast, setChatToast] = useState<any>(null);
+  const [notificationFolder, setNotificationFolder] = useState("");
+  const [notificationConversation, setNotificationConversation] = useState("");
   const [mediaType, setMediaType] = useState("All");
   const [mediaDetail, setMediaDetail] = useState<any>(null);
   const [draftMedia, setDraftMedia] = useState<File[]>([]),
@@ -828,11 +832,42 @@ export default function Workspace() {
           <div className="header-right" data-tour="shortcuts">
             <SiteTour
               userId={loading ? undefined : user().id}
+              userName={user().name}
               onNavigate={(next) => {
                 setDetail(null);
                 setMediaDetail(null);
                 setChatOpen(false);
                 go(next);
+              }}
+            />
+            <NotificationCenter
+              onOpen={(item) => {
+                if (item.category === "message") {
+                  setNotificationConversation(item.conversationId);
+                  setChatOpen(true);
+                  return;
+                }
+                const record = getState().records.find(
+                  (r: any) => r.id === item.targetId,
+                );
+                if (
+                  item.targetKind === "note" ||
+                  item.targetKind === "folder"
+                ) {
+                  setNotificationFolder(
+                    item.targetKind === "folder"
+                      ? item.targetId
+                      : record?.folder || item.folderId,
+                  );
+                  go("Media Vault");
+                } else if (record) open(record);
+                else go("Overview");
+              }}
+            />
+            <QuickNote
+              onSaved={() => {
+                setToast("Note saved to its folder");
+                setTimeout(() => setToast(""), 2500);
               }}
             />
             <button
@@ -1400,6 +1435,7 @@ export default function Workspace() {
           )}
           <Messenger
             active={page === "Messenger"}
+            requestedConversation={notificationConversation}
             floating={chatOpen && page !== "Messenger"}
             onClose={() => setChatOpen(false)}
             onExpand={() => go("Messenger")}
@@ -1531,7 +1567,9 @@ export default function Workspace() {
           )}
           {page === "Reports" && <Reports />}
           {page === "Archive" && <ArchiveRoom />}
-          {page === "Media Vault" && <Library />}
+          {page === "Media Vault" && (
+            <Library initialFolder={notificationFolder} />
+          )}
           {page === "Dealerships" && <Library locationsMode />}
           {page === "Team & Settings" && <PreviewAdmin />}
           {page === "IGNITION" && (

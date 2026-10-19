@@ -4,8 +4,12 @@ import { CircleHelp, X } from "lucide-react";
 import { guideSteps } from "../lib/site-guide";
 import "./site-tour.css";
 
-type Props = { onNavigate: (page: string) => void; userId?: string };
-export default function SiteTour({ onNavigate, userId }: Props) {
+type Props = {
+  onNavigate: (page: string) => void;
+  userId?: string;
+  userName?: string;
+};
+export default function SiteTour({ onNavigate, userId, userName }: Props) {
   const [step, setStep] = useState<number | null>(null);
   const [spot, setSpot] = useState<DOMRect | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -168,7 +172,12 @@ export default function SiteTour({ onNavigate, userId }: Props) {
                   Step {step! + 1} of {guideSteps.length}
                 </small>
                 <h2 id="wam-tour-title">{current.title}</h2>
-                <p id="wam-tour-copy">{current.summary}</p>
+                <p id="wam-tour-copy">
+                  {current.summary.replace(
+                    "{name}",
+                    userName?.trim().split(/\s+/)[0] || "Welcome",
+                  )}
+                </p>
                 <div className="wam-tour-action">{current.action}</div>
               </div>
               <label className="wam-tour-jump">

@@ -25,6 +25,7 @@ export default async function handler(req, res) {
       "media-upload",
       "media-read",
       "presence",
+      "notifications",
     ].includes(route)
   )
     return res.status(404).json({ error: "Not found" });

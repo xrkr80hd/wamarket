@@ -41,6 +41,7 @@ export default function MessengerInbox({
   onClose,
   onExpand,
   onUnread = () => {},
+  requestedConversation = "",
 }: any) {
   const s = useWorkspace(),
     me = user(),
@@ -67,6 +68,17 @@ export default function MessengerInbox({
     },
     [pop],
   );
+  useEffect(() => {
+    if (
+      requestedConversation &&
+      s.conversations.some(
+        (c: any) => c.id === requestedConversation && c.members.includes(me.id),
+      )
+    ) {
+      C(requestedConversation);
+      List(false);
+    }
+  }, [requestedConversation, s.conversations.length, me.id]);
   useChatSound(s, me.id);
   const visible = active || floating || !!pop;
   const allowed = s.conversations.filter(

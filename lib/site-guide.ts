@@ -176,7 +176,7 @@ export const guideSteps = [
   {
     title: "Welcome to WAM",
     summary:
-      "McKenzie, this is Walker's shared marketing workspace. This tour shows where work is planned, created, reviewed, and organized.",
+      "{name}, this is Walker's shared marketing workspace. This tour shows where work is planned, created, reviewed, and organized.",
     action:
       "Choose Next to look around, or use Jump to a section. You can close and restart the tour anytime.",
     target: "page",
@@ -192,7 +192,7 @@ export const guideSteps = [
   {
     title: "Your everyday shortcuts",
     summary:
-      "The top bar has quick idea capture, refresh, team chat with an unread count, and light/dark appearance controls.",
+      "The top bar has notifications, quick notes with a folder picker, quick idea capture, refresh, team chat with an unread count, and light/dark appearance controls.",
     action:
       "Hover over each control for help. Site tour is always available here when you want another walkthrough.",
     target: "shortcuts",

@@ -1,4 +1,5 @@
 import LocationBadge from "./location-badge";
+import FolderImagePicker from "./folder-image-picker";
 import React, { useState, useEffect, useRef } from "react";
 import {
   getState,
@@ -78,6 +79,7 @@ export function DailyQuote() {
 export function RecordEditor({ record, onClose }: any) {
   const [d, set] = useState({ ...record }),
     [error, E] = useState("");
+  const [folderUploading, setFolderUploading] = useState(false);
   const state = useWorkspace();
   const field = (key: string, label: string, type = "text") => (
     <label>
@@ -106,6 +108,7 @@ export function RecordEditor({ record, onClose }: any) {
         onSubmit={(e) => {
           e.preventDefault();
           try {
+            if (folderUploading) return;
             saveRecord(d);
             onClose();
           } catch (e: any) {
@@ -117,10 +120,25 @@ export function RecordEditor({ record, onClose }: any) {
           <h2>
             {d.id ? "Edit" : "Create"} {d.kind}
           </h2>
-          <button type="button" aria-label="Close" onClick={onClose}>
+          <button
+            type="button"
+            aria-label="Close"
+            disabled={folderUploading}
+            onClick={onClose}
+          >
             ×
           </button>
         </div>
+        {d.kind === "folder" && (
+          <FolderImagePicker
+            value={d.artwork || ""}
+            folder={d}
+            onChange={(artwork: string) =>
+              set((current: any) => ({ ...current, artwork }))
+            }
+            onBusyChange={setFolderUploading}
+          />
+        )}
         <details className="editor-section" open>
           <summary>Basics</summary>
           <div className="formgrid">
@@ -357,10 +375,12 @@ export function RecordEditor({ record, onClose }: any) {
           </p>
         )}
         <div className="modalactions">
-          <button type="button" onClick={onClose}>
+          <button type="button" disabled={folderUploading} onClick={onClose}>
             Cancel
           </button>
-          <button className="primary">Save</button>
+          <button className="primary" disabled={folderUploading}>
+            Save
+          </button>
         </div>
       </form>
     </div>

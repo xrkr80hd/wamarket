@@ -48,6 +48,11 @@ function status(text: string) {
   window.dispatchEvent(new CustomEvent("wam-cloud-status", { detail: text }));
 }
 export function stopCloudWorkspace() {
+  if (typeof navigator !== "undefined")
+    navigator.serviceWorker?.controller?.postMessage({
+      type: "WAM_ACCOUNT",
+      userId: "",
+    });
   stopped = true;
   clearInterval(timer);
   window.removeEventListener("wam-change", changed);

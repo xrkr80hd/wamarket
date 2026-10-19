@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Plus, X, Download } from "lucide-react";
 import { inAssetFolder, unassignedAsset } from "../lib/media";
+import FolderNotepad from "./folder-notepad";
 export default function AssetFolder({
   folder,
   assets,
@@ -42,6 +43,9 @@ export default function AssetFolder({
   }
   return (
     <section className="asset-folder">
+      {folder.kind === "folder" && (
+        <FolderNotepad key={folder.id} folderId={folder.id} />
+      )}
       <div className="sectionhead">
         <div>
           <h3>Media</h3>

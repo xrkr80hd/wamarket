@@ -97,3 +97,35 @@
 .workspace-shell nav.breadcrumbs>button{width:auto;margin:0;padding:5px 0;min-height:32px;background:transparent;color:var(--ui-linkText);font-size:inherit;font-weight:500;border:0}
 .workspace-shell nav.breadcrumbs>button:hover{text-decoration:underline}
 .workspace-shell nav.breadcrumbs>[aria-current=page]{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.app .folder-notepad{margin:16px 0;min-width:0}
+.app .folder-notepad form>label{display:block;font-weight:600;margin-bottom:8px}
+.app .folder-notepad form>textarea{display:block;width:100%;min-height:130px;resize:vertical;line-height:1.5;background:var(--ui-inputBg);color:var(--ui-inputText);border:1px solid var(--ui-borderColor);border-radius:8px;padding:12px;box-sizing:border-box}
+.app .folder-notepad-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:10px}
+.app .folder-notepad-footer small{color:var(--ui-mutedText)}
+
+.app .folder-notepad form>input{width:100%;box-sizing:border-box;margin-bottom:12px}
+.app .folder-note-list{display:grid;gap:8px}
+.app .folder-note-item{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;white-space:normal;width:100%;min-width:0;height:auto;padding:12px;overflow-wrap:anywhere}
+.app .folder-note-item small{font-weight:400;white-space:pre-wrap;overflow-wrap:anywhere}
+.app .folder-notepad form{margin-top:16px}
+
+.app .folder-notepad form>select{display:block;width:100%;box-sizing:border-box;margin:8px 0 12px}
+.app .folder-notepad form>textarea{margin-bottom:12px}
+.app .header-right .quick-note-global{display:inline-flex!important;flex-shrink:0}
+.app .quick-note-dialog{width:min(560px,calc(100vw - 28px));max-height:90dvh;overflow:auto;text-align:left;white-space:normal;box-sizing:border-box}
+.app .quick-note-overlay{z-index:110}
+@media(max-width:480px){.workspace-shell .breadcrumbs{min-width:0;overflow:hidden}.workspace-shell .breadcrumbs>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.workspace-shell .header-right{gap:2px}.workspace-shell .header-right .icon{width:30px;min-width:30px;padding:5px}}
+
+.app .folder-image-picker{display:flex;align-items:center;gap:14px;margin:16px 0;padding:12px;border:1px solid var(--ui-borderColor);border-radius:8px;min-width:0}
+.app .folder-image-picker>div:last-child{flex:1;min-width:0}
+.app .folder-image-picker p{font-size:12px;margin:6px 0}
+.app .folder-image-preview{display:grid;place-items:center;flex:0 0 72px;height:72px;background:var(--ui-pageBg);border-radius:8px}
+.app .folder-image-preview .location-badge{width:64px;height:64px;object-fit:contain}
+.app .custom-folder-image{object-fit:contain}
+@media(max-width:480px){.app .folder-image-picker{align-items:flex-start;flex-wrap:wrap}.app .folder-image-picker .ops-actions{flex-wrap:wrap}}
+
+.app .header-right .notification-trigger{display:inline-flex!important;position:relative;flex-shrink:0}
+.notification-count{position:absolute;top:-4px;right:-5px;min-width:16px;padding:2px 4px;border-radius:12px;background:#bd2246;color:#fff;font-size:9px;line-height:1.1}
+.notification-panel{z-index:105;width:min(390px,calc(100vw - 24px));max-height:80dvh;overflow:auto;box-sizing:border-box;padding:16px;border:1px solid var(--ui-borderColor,#ddd);border-radius:12px;background:var(--ui-cardBg,#fff);color:var(--ui-bodyText,#222);box-shadow:0 12px 50px #0003;text-align:left;white-space:normal}
+.notification-panel h2{font-size:18px;margin:0}.notification-panel p{font-size:12px}.notification-controls{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:12px 0}.notification-controls button,.notification-device button{font-size:12px;min-height:32px;height:auto}.notification-items{display:grid;gap:6px}.notification-panel .notification-item{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:5px;width:100%;padding:12px;white-space:normal;overflow-wrap:anywhere;height:auto;border-radius:8px;background:transparent}.notification-panel .notification-item.unread{background:var(--ui-pageBg,#f5f5f3);border-left:3px solid var(--ui-primaryBg,#a74400)}.notification-item b{font-size:12px}.notification-item span{font-size:12px;font-weight:400}.notification-item time{font-size:10px;opacity:.7}.notification-device{display:grid;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid var(--ui-borderColor,#ddd)}.notification-device small{font-size:11px;line-height:1.5}

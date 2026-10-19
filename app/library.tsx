@@ -1,6 +1,8 @@
 import LocationBadge from "./location-badge";
 import { folderBrand, brandStyle } from "../lib/location-branding";
 import UploadQueue from "./upload-queue";
+import FolderNotepad from "./folder-notepad";
+import FolderImagePicker from "./folder-image-picker";
 import AssetAssignment from "./asset-assignment";
 import { useState, useRef, useEffect } from "react";
 import {
@@ -18,10 +20,13 @@ import {
   exportJSON,
   user,
 } from "../lib/preview-store";
-export default function Library({ locationsMode = false }: any) {
+export default function Library({
+  locationsMode = false,
+  initialFolder = "",
+}: any) {
   const s = useWorkspace(),
     [pageIndex, Page] = useState(0),
-    [folder, F] = useState(""),
+    [folder, F] = useState(initialFolder),
     [loc, L] = useState(""),
     [q, Q] = useState(""),
     [type, T] = useState(""),
@@ -36,10 +41,15 @@ export default function Library({ locationsMode = false }: any) {
     [archived, A] = useState(false),
     [newFolder, N] = useState(false),
     [name, Name] = useState(""),
+    [folderArtwork, setFolderArtwork] = useState(""),
+    [folderUploading, setFolderUploading] = useState(false),
     [assignAsset, AssignAsset] = useState<any>(null),
     [bulk, K] = useState(false),
     [target, J] = useState("");
   const press = useRef<any>();
+  useEffect(() => {
+    if (initialFolder) F(initialFolder);
+  }, [initialFolder]);
   useEffect(() => Page(0), [folder, loc, q, type, view, archived, unassigned]);
   const root = s.records.find((r: any) => r.id === folder);
   const folders = s.records.filter(
@@ -168,7 +178,15 @@ export default function Library({ locationsMode = false }: any) {
             e.target.value = "";
           }}
         />
-        <button onClick={() => N(true)}>＋ New folder</button>
+        <button
+          onClick={() => {
+            setFolderArtwork("");
+            Name("");
+            N(true);
+          }}
+        >
+          ＋ New folder
+        </button>
         <input
           aria-label="Search assets"
           placeholder="Search files or tags…"
@@ -257,9 +275,13 @@ export default function Library({ locationsMode = false }: any) {
               className="breadcrumb-badge"
             />
             <strong>{root.title}</strong>
+            <button onClick={() => E(root)}>Edit folder / icon</button>
           </>
         )}
       </div>
+      {root?.kind === "folder" && (
+        <FolderNotepad key={root.id} folderId={root.id} />
+      )}
       {locationsMode && !folder && !unassigned && (
         <>
           <div className="ops-cards">
@@ -277,7 +299,14 @@ export default function Library({ locationsMode = false }: any) {
                   L(n);
                 }}
               >
-                <LocationBadge record={{ kind: "dealership", title: n }} />
+                <LocationBadge
+                  record={
+                    s.records.find((r: any) => r.id === "locfolder-" + i) || {
+                      kind: "dealership",
+                      title: n,
+                    }
+                  }
+                />
                 <h3>{n}</h3>
                 <p>{address}</p>
                 <small>
@@ -316,9 +345,7 @@ export default function Library({ locationsMode = false }: any) {
                   </small>
                 </span>
               </button>
-              {!f.locationRoot && (
-                <button onClick={() => E(f)}>Edit folder</button>
-              )}
+              <button onClick={() => E(f)}>Edit folder / icon</button>
             </div>
           ))}
         </div>
@@ -461,15 +488,22 @@ export default function Library({ locationsMode = false }: any) {
             aria-modal="true"
             onSubmit={(e) => {
               e.preventDefault();
-              saveRecord({
-                kind: "folder",
-                title: name,
-                folder,
-                dealership: root?.dealership || loc || "",
-                status: "Active",
-              });
-              Name("");
-              N(false);
+              if (folderUploading) return;
+              try {
+                saveRecord({
+                  kind: "folder",
+                  artwork: folderArtwork,
+                  title: name,
+                  folder,
+                  dealership: root?.dealership || loc || "",
+                  status: "Active",
+                });
+                Name("");
+                N(false);
+                setFolderArtwork("");
+              } catch (e: any) {
+                Error(e.message);
+              }
             }}
           >
             <h2>Create project folder</h2>
@@ -483,11 +517,23 @@ export default function Library({ locationsMode = false }: any) {
                 onChange={(e) => Name(e.target.value)}
               />
             </label>
+            <FolderImagePicker
+              value={folderArtwork}
+              onChange={setFolderArtwork}
+              onBusyChange={setFolderUploading}
+              folder={{ dealership: root?.dealership || loc || "" }}
+            />
             <div className="modalactions">
-              <button type="button" onClick={() => N(false)}>
+              <button
+                type="button"
+                disabled={folderUploading}
+                onClick={() => N(false)}
+              >
                 Cancel
               </button>
-              <button className="primary">Create folder</button>
+              <button className="primary" disabled={folderUploading}>
+                Create folder
+              </button>
             </div>
           </form>
         </div>

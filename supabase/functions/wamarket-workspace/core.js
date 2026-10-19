@@ -1,3 +1,4 @@
+import { notificationService } from "./notifications.js";
 const MASTER = "xrkr80hd@gmail.com";
 export function createWorkspaceHandler(env, fetcher = fetch) {
   const url = env.SUPABASE_URL,
@@ -123,6 +124,15 @@ export function createWorkspaceHandler(env, fetcher = fetch) {
           });
         return c[0].data;
       }
+      const notifications = notificationService(
+        api,
+        me,
+        directory,
+        chat,
+        fetcher,
+      );
+      if (endpoint === "notifications")
+        return await notifications.request(req, send);
       if (endpoint === "drive-config") {
         const bridge = req.headers.get("X-Drive-Bridge") || "";
         const digest = Array.from(
@@ -167,7 +177,7 @@ export function createWorkspaceHandler(env, fetcher = fetch) {
       }
       if (req.method === "GET" && endpoint === "state") {
         const rows = await api(
-          "/rest/v1/wamarket_records?select=id,data,version&limit=1000",
+          "/rest/v1/wamarket_records?data->>kind=neq.__notification&select=id,data,version&limit=1000",
         );
         const personal = await api(
           "/rest/v1/wamarket_dashboards?user_id=eq." + me.id + "&select=data",
@@ -277,6 +287,10 @@ export function createWorkspaceHandler(env, fetcher = fetch) {
           "&select=data,version",
       );
       const old = existing[0];
+      if (r.kind === "__notification" || old?.data.kind === "__notification")
+        return send(403, { error: "Notifications are managed by the server." });
+      if (old && old.data.kind !== r.kind)
+        return send(400, { error: "The record type cannot be changed." });
       if (old && !readable(old.data))
         return send(403, { error: "This record is private." });
       if (r.kind === "__conversation") {
@@ -430,6 +444,7 @@ export function createWorkspaceHandler(env, fetcher = fetch) {
           { id: r.id, data: safe, version: 1 },
           { Prefer: "return=representation" },
         );
+        await notifications.emit(safe).catch(() => {});
         return send(200, { record: d[0] });
       }
       if (b.version !== old.version)
@@ -452,6 +467,7 @@ export function createWorkspaceHandler(env, fetcher = fetch) {
       );
       if (!d.length)
         return send(409, { error: "This item changed. Reload and try again." });
+      await notifications.emit(safe, old.data).catch(() => {});
       return send(200, { record: d[0] });
     } catch (e) {
       return send(
