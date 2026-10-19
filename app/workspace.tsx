@@ -1,5 +1,7 @@
 import { roleLabel, personalRecords } from "../lib/dashboard";
 import LocationBadge from "./location-badge";
+import SiteTour from "./site-tour";
+import { sectionGuide, toolbarGuide } from "../lib/site-guide";
 import { brandStyle, folderBrand } from "../lib/location-branding";
 import QuickIdeas, { QuickIdeasNotice } from "./quick-ideas";
 import { openQuickIdea, unreadIdeas } from "../lib/quick-ideas";
@@ -598,7 +600,10 @@ export default function Workspace() {
         } as any
       }
     >
-      <aside className={mobile ? "sidebar show" : "sidebar"}>
+      <aside
+        data-tour="navigation"
+        className={mobile ? "sidebar show" : "sidebar"}
+      >
         <div className="brand brand-logo-only">
           <BrandImage id={prefs.logo} />
         </div>
@@ -621,7 +626,8 @@ export default function Workspace() {
               <button
                 className={page === n ? "selected" : ""}
                 onClick={() => go(n)}
-                title={n}
+                title={sectionGuide[n]?.summary || n}
+                data-help={sectionGuide[n]?.summary}
                 key={n}
               >
                 <I size={16} />
@@ -660,7 +666,8 @@ export default function Workspace() {
                 <button
                   className={page === n ? "selected" : ""}
                   onClick={() => go(n)}
-                  title={n}
+                  title={sectionGuide[n]?.summary || n}
+                  data-help={sectionGuide[n]?.summary}
                   key={n}
                 >
                   <I size={16} />
@@ -703,7 +710,8 @@ export default function Workspace() {
                 <button
                   className={page === n ? "selected" : ""}
                   onClick={() => go(n)}
-                  title={n}
+                  title={sectionGuide[n]?.summary || n}
+                  data-help={sectionGuide[n]?.summary}
                   key={n}
                 >
                   <I size={16} />
@@ -735,7 +743,8 @@ export default function Workspace() {
                 <button
                   className={page === n ? "selected" : ""}
                   onClick={() => go(n)}
-                  title={n}
+                  title={sectionGuide[n]?.summary || n}
+                  data-help={sectionGuide[n]?.summary}
                   key={n}
                 >
                   <I size={16} />
@@ -790,6 +799,7 @@ export default function Workspace() {
           <button
             className="icon navigation-toggle"
             aria-label="Toggle navigation"
+            data-help={toolbarGuide.navigation}
             onClick={() => {
               if (window.matchMedia("(max-width:800px)").matches)
                 setMobile(!mobile);
@@ -815,10 +825,20 @@ export default function Workspace() {
               {page === "Overview" ? "Home" : page}
             </span>
           </nav>
-          <div className="header-right">
+          <div className="header-right" data-tour="shortcuts">
+            <SiteTour
+              userId={loading ? undefined : user().id}
+              onNavigate={(next) => {
+                setDetail(null);
+                setMediaDetail(null);
+                setChatOpen(false);
+                go(next);
+              }}
+            />
             <button
               className="icon quick-idea-global"
               aria-label="Add quick idea"
+              data-help={toolbarGuide.idea}
               title="Add quick idea"
               onClick={openQuickIdea}
             >
@@ -827,6 +847,7 @@ export default function Workspace() {
             <button
               className="icon refresh-workspace"
               aria-label="Refresh workspace"
+              data-help={toolbarGuide.refresh}
               title="Refresh workspace"
               onClick={async () => {
                 await load();
@@ -839,6 +860,7 @@ export default function Workspace() {
             <button
               className="icon messenger-header-button"
               aria-label="Open messenger"
+              data-help={toolbarGuide.messenger}
               title="Messenger"
               onClick={() => setChatOpen(!chatOpen)}
             >
@@ -850,6 +872,7 @@ export default function Workspace() {
             <button
               className="icon"
               aria-label="Use light mode"
+              data-help={toolbarGuide.light}
               title="Light mode"
               aria-pressed={prefs.theme !== "dark"}
               disabled={busy}
@@ -860,6 +883,7 @@ export default function Workspace() {
             <button
               className="icon"
               aria-label="Use dark mode"
+              data-help={toolbarGuide.dark}
               title="Dark mode"
               aria-pressed={prefs.theme === "dark"}
               disabled={busy}
@@ -870,7 +894,7 @@ export default function Workspace() {
           </div>
         </header>
         <div className="content">
-          <div className="pagehead">
+          <div className="pagehead" data-tour="page">
             <div>
               <div className="eyebrow">
                 WALKER AUTOMOTIVE / CREATIVE OPERATIONS
