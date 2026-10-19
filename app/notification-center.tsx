@@ -12,6 +12,7 @@ import {
   setAppBadge,
 } from "../lib/device-notifications";
 import { useWorkspace } from "./operations";
+import WorkspacePortal from "./workspace-portal";
 
 export default function NotificationCenter({
   onOpen,
@@ -35,16 +36,14 @@ export default function NotificationCenter({
   const localRead = state.preferences[me.id]?.notificationReadAt || "";
   const visible = cloud
     ? items
-    : (state.activity || [])
-        .slice(0, 50)
-        .map((a: any) => ({
-          ...a,
-          title: a.by + " · " + a.text,
-          summary: "Workspace update",
-          createdAt: a.at,
-          read: a.at <= localRead,
-          category: "activity",
-        }));
+    : (state.activity || []).slice(0, 50).map((a: any) => ({
+        ...a,
+        title: a.by + " · " + a.text,
+        summary: "Workspace update",
+        createdAt: a.at,
+        read: a.at <= localRead,
+        category: "activity",
+      }));
   const unread = visible.filter((item: any) => !item.read).length;
   useEffect(() => {
     void setAppBadge(unread);
@@ -182,98 +181,104 @@ export default function NotificationCenter({
             )}
           </button>
         </Popover.Trigger>
-        <Popover.Content
-          className="notification-panel"
-          align="end"
-          sideOffset={10}
-          collisionPadding={10}
-        >
-          <div className="sectionhead">
-            <h2>Notifications</h2>
-            <Popover.Close asChild>
-              <button className="icon" aria-label="Close notifications">
-                <X size={18} />
-              </button>
-            </Popover.Close>
-          </div>
-          <p>A quick look at what’s happening.</p>
-          <div className="notification-controls">
-            <small>{unread} unread</small>
-            <button
-              type="button"
-              disabled={!unread}
-              onClick={() => void markRead()}
+        {open && (
+          <WorkspacePortal>
+            <Popover.Content
+              className="notification-panel"
+              align="end"
+              sideOffset={10}
+              collisionPadding={10}
             >
-              Mark all read
-            </button>
-          </div>
-          <div className="notification-items">
-            {visible.map((item: any) => (
-              <button
-                type="button"
-                key={item.id}
-                className={"notification-item " + (!item.read ? "unread" : "")}
-                onClick={() => visit(item)}
-              >
-                <b>{item.title}</b>
-                <span>{item.summary}</span>
-                <time dateTime={item.createdAt}>
-                  {new Date(item.createdAt).toLocaleString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
-                </time>
-              </button>
-            ))}
-            {!visible.length && !error && (
-              <p>
-                You’re all caught up. New notes, work updates, and messages will
-                appear here.
-              </p>
-            )}
-          </div>
-          {cloud && (
-            <div className="notification-device">
-              <button
-                type="button"
-                disabled={busy || !publicKey}
-                onClick={async () => {
-                  setBusy(true);
-                  setError("");
-                  try {
-                    if (enabled) await disableDeviceNotifications();
-                    else await enableDeviceNotifications(publicKey, me.id);
-                    setEnabled(!enabled);
-                  } catch (e: any) {
-                    setError(e.message);
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              >
-                {busy
-                  ? "Updating…"
-                  : enabled
-                    ? "Turn off phone notifications"
-                    : "Enable phone notifications"}
-              </button>
-              <small>
-                {enabled
-                  ? "This device will receive alerts and an unread app badge where supported."
-                  : deviceNotificationSupport()
-                    ? "Allow notifications for message alerts and app badges. On iPhone, open the app from your Home Screen."
-                    : "Install Walker Suite on your Home Screen and open it there to enable phone alerts."}
-              </small>
-            </div>
-          )}
-          {error && (
-            <p role="alert" className="notice">
-              {error}
-            </p>
-          )}
-        </Popover.Content>
+              <div className="sectionhead">
+                <h2>Notifications</h2>
+                <Popover.Close asChild>
+                  <button className="icon" aria-label="Close notifications">
+                    <X size={18} />
+                  </button>
+                </Popover.Close>
+              </div>
+              <p>A quick look at what’s happening.</p>
+              <div className="notification-controls">
+                <small>{unread} unread</small>
+                <button
+                  type="button"
+                  disabled={!unread}
+                  onClick={() => void markRead()}
+                >
+                  Mark all read
+                </button>
+              </div>
+              <div className="notification-items">
+                {visible.map((item: any) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    className={
+                      "notification-item " + (!item.read ? "unread" : "")
+                    }
+                    onClick={() => visit(item)}
+                  >
+                    <b>{item.title}</b>
+                    <span>{item.summary}</span>
+                    <time dateTime={item.createdAt}>
+                      {new Date(item.createdAt).toLocaleString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </time>
+                  </button>
+                ))}
+                {!visible.length && !error && (
+                  <p>
+                    You’re all caught up. New notes, work updates, and messages
+                    will appear here.
+                  </p>
+                )}
+              </div>
+              {cloud && (
+                <div className="notification-device">
+                  <button
+                    type="button"
+                    disabled={busy || !publicKey}
+                    onClick={async () => {
+                      setBusy(true);
+                      setError("");
+                      try {
+                        if (enabled) await disableDeviceNotifications();
+                        else await enableDeviceNotifications(publicKey, me.id);
+                        setEnabled(!enabled);
+                      } catch (e: any) {
+                        setError(e.message);
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                  >
+                    {busy
+                      ? "Updating…"
+                      : enabled
+                        ? "Turn off phone notifications"
+                        : "Enable phone notifications"}
+                  </button>
+                  <small>
+                    {enabled
+                      ? "This device will receive alerts and an unread app badge where supported."
+                      : deviceNotificationSupport()
+                        ? "Allow notifications for message alerts and app badges. On iPhone, open the app from your Home Screen."
+                        : "Install Walker Suite on your Home Screen and open it there to enable phone alerts."}
+                  </small>
+                </div>
+              )}
+              {error && (
+                <p role="alert" className="notice">
+                  {error}
+                </p>
+              )}
+            </Popover.Content>
+          </WorkspacePortal>
+        )}
       </Popover.Root>
       {toast && (
         <div className="message-toast" role="status">

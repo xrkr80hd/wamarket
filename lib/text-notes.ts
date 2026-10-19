@@ -45,3 +45,9 @@ export async function saveTextNote(draft: any) {
   );
   return record;
 }
+
+export function openTextNote(id: string) {
+  window.dispatchEvent(
+    new CustomEvent("wam-open-text-note", { detail: { id } }),
+  );
+}

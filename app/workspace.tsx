@@ -3,6 +3,7 @@ import LocationBadge from "./location-badge";
 import SiteTour from "./site-tour";
 import QuickNote from "./quick-note";
 import NotificationCenter from "./notification-center";
+import { openTextNote } from "../lib/text-notes";
 import { sectionGuide, toolbarGuide } from "../lib/site-guide";
 import { brandStyle, folderBrand } from "../lib/location-branding";
 import QuickIdeas, { QuickIdeasNotice } from "./quick-ideas";
@@ -850,10 +851,11 @@ export default function Workspace() {
                 const record = getState().records.find(
                   (r: any) => r.id === item.targetId,
                 );
-                if (
-                  item.targetKind === "note" ||
-                  item.targetKind === "folder"
-                ) {
+                if (item.targetKind === "note") {
+                  openTextNote(item.targetId);
+                  return;
+                }
+                if (item.targetKind === "folder") {
                   setNotificationFolder(
                     item.targetKind === "folder"
                       ? item.targetId
