@@ -293,6 +293,30 @@ export function createWorkspaceHandler(env, fetcher = fetch) {
         return send(400, { error: "The record type cannot be changed." });
       if (old && !readable(old.data))
         return send(403, { error: "This record is private." });
+      if (r.kind === "video") {
+        const versions = r.versions || [];
+        if (
+          !Array.isArray(versions) ||
+          versions.some((v) => !v?.id) ||
+          new Set(versions.map((v) => v.id)).size !== versions.length
+        )
+          return send(400, { error: "Video revisions need unique IDs." });
+        for (const version of versions) {
+          const previous = old?.data.versions?.find((v) => v.id === version.id);
+          if (
+            previous &&
+            (previous.source?.provider === "gdrive-link" ||
+              version.source?.provider === "gdrive-link") &&
+            (JSON.stringify(previous.source) !==
+              JSON.stringify(version.source) ||
+              previous.assetId !== version.assetId)
+          )
+            return send(403, {
+              error:
+                "Add a new revision instead of replacing a linked video. Existing feedback belongs to the original cut.",
+            });
+        }
+      }
       if (r.kind === "__conversation") {
         if (
           !Array.isArray(r.members) ||

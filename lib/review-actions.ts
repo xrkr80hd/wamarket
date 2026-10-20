@@ -6,6 +6,46 @@ import {
   addAsset,
   conversation,
 } from "./preview-store";
+import { flushCloudWorkspace } from "./cloud-workspace";
+export async function addDriveVideoVersion(videoId: string, link: string) {
+  if (!sessionStorage.getItem("wam-cloud-auth"))
+    throw Error(
+      "Sign in to the shared workspace to link a private Drive video.",
+    );
+  if (!["owner", "executive", "coordinator"].includes(user().role))
+    throw Error("Only the production team can add video revisions.");
+  await flushCloudWorkspace();
+  const response = await fetch("/api/drive?route=review-link", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ videoId, link }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw Error(data.error || "Unable to link Drive video.");
+  // Re-read after network work so a revision cannot erase an intervening update.
+  const video = getState().records.find(
+    (r: any) => r.id === videoId && r.kind === "video",
+  );
+  if (!video || video.archived) throw Error("Video project not found");
+  const version = {
+    id: crypto.randomUUID(),
+    source: data.source,
+    originalName: data.name,
+    name: "Version " + ((video.versions || []).length + 1),
+    createdBy: user().name,
+    createdAt: new Date().toISOString(),
+    status: "Video Draft",
+    reviews: [],
+  };
+  saveRecord({
+    ...video,
+    status: "Editing",
+    versions: [...(video.versions || []), version],
+  });
+  await flushCloudWorkspace();
+  return version;
+}
 export async function addVideoVersion(videoId: string, file: File) {
   const r = getState().records.find(
     (r: any) => r.id === videoId && r.kind === "video",

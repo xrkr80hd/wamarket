@@ -1,6 +1,7 @@
 import TeamStatus from "./team-status";
 import {
   addVideoVersion,
+  addDriveVideoVersion,
   addAnnotation,
   setAnnotationStatus,
   reviewVersion,
@@ -18,10 +19,8 @@ import {
   conversation,
 } from "../lib/preview-store";
 const playbackRates = [0.25, 0.5, 1, 1.5, 2];
-export const timecode = (t: number) => {
-  const n = Math.max(0, t || 0);
-  return `${String(Math.floor(n / 60)).padStart(2, "0")}:${String(Math.floor(n % 60)).padStart(2, "0")}.${String(Math.round((n % 1) * 1000)).padStart(3, "0")}`;
-};
+import { timecode, reviewPlaybackURL } from "../lib/drive-review.js";
+export { timecode };
 export default function VideoReview({ initial }: any) {
   const s = useWorkspace(),
     videos = s.records.filter((r: any) => r.kind === "video" && !r.archived),
@@ -37,6 +36,9 @@ export default function VideoReview({ initial }: any) {
       }
     }),
     [url, U] = useState(""),
+    [driveOpen, DriveOpen] = useState(false),
+    [driveLink, DriveLink] = useState(""),
+    [ready, Ready] = useState(false),
     [speed, Speed] = useState(2),
     [draftMarker, Marker] = useState(false),
     [now, N] = useState(0),
@@ -67,35 +69,81 @@ export default function VideoReview({ initial }: any) {
   useEffect(() => {
     if (initial) ID(initial);
   }, [initial]);
+  const pendingSeek = useRef<any>(null);
   useEffect(() => {
-    if (!current) {
-      U("");
-      return;
-    }
     let alive = true;
-    fileURL(current.assetId).then((u) => {
-      if (alive) U(u);
-    });
+    U("");
+    Ready(false);
+    N(0);
+    Dur(0);
+    I(0);
+    O(null);
+    Marker(false);
+    ManualTiming(false);
+    Text("");
+    RF(null);
+    E("");
+    if (current?.source?.provider === "gdrive-link") {
+      U(reviewPlaybackURL(id, current.id));
+    } else if (current?.assetId) {
+      fileURL(current.assetId)
+        .then((value) => {
+          if (alive) U(value);
+        })
+        .catch((error) => {
+          if (alive) E(error.message);
+        });
+    }
     return () => {
       alive = false;
     };
-  }, [current?.assetId]);
+  }, [id, current?.id, current?.assetId, current?.source?.reference]);
   useEffect(() => {
     const jump = (e: any) => {
-      ID(e.detail.videoId);
-      V(e.detail.versionId);
-      setTimeout(() => seek(e.detail.time), 300);
+      const target = e.detail;
+      sessionStorage.setItem("wam-seek", JSON.stringify(target));
+      pendingSeek.current = target;
+      ID(target.videoId);
+      V(target.versionId);
+      const element = player.current;
+      if (
+        element?.dataset.version === target.versionId &&
+        element.readyState >= 1
+      ) {
+        element.currentTime = Math.max(
+          0,
+          Math.min(element.duration, target.time),
+        );
+        sessionStorage.removeItem("wam-seek");
+        pendingSeek.current = null;
+      }
     };
     window.addEventListener("wam-review-link", jump);
     return () => window.removeEventListener("wam-review-link", jump);
   }, []);
   function seek(t: number) {
-    if (player.current) {
-      player.current.currentTime = Math.min(
-        duration || Infinity,
+    const element = player.current;
+    if (element && element.readyState >= 1 && Number.isFinite(t)) {
+      element.currentTime = Math.min(
+        element.duration || Infinity,
         Math.max(0, t),
       );
-      N(t);
+      N(element.currentTime);
+    }
+  }
+  async function linkDrive(e: any) {
+    e.preventDefault();
+    B(true);
+    E("");
+    try {
+      const added = await addDriveVideoVersion(id, driveLink);
+      V(added.id);
+      DriveLink("");
+      DriveOpen(false);
+    } catch (error: any) {
+      E(error.message);
+    } finally {
+      B(false);
     }
   }
   async function upload(file?: File) {
@@ -133,16 +181,18 @@ export default function VideoReview({ initial }: any) {
     e.preventDefault();
     E("");
     try {
-      if (!current) throw Error("Upload a version first");
+      if (!current || !ready)
+        throw Error("Wait for video playback to load before annotating");
       if (
         start < 0 ||
         (duration && start > duration) ||
         (end !== null && (end < start || (duration && end > duration)))
       )
         throw Error("Choose a valid IN / OUT range within this video");
+      const capturedTime = player.current?.currentTime ?? now;
       const reference = refFile ? await addAsset(refFile) : "";
       addAnnotation(id, current.id, {
-        start: manualTiming ? start : now,
+        start: manualTiming ? start : capturedTime,
         end: manualTiming ? end : null,
         type,
         text,
@@ -167,6 +217,7 @@ export default function VideoReview({ initial }: any) {
       <div className="ops-toolbar">
         <select
           aria-label="Select video"
+          disabled={busy}
           value={id}
           onChange={(e) => {
             ID(e.target.value);
@@ -181,8 +232,10 @@ export default function VideoReview({ initial }: any) {
           ))}
         </select>
         <button
+          disabled={busy}
           onClick={() =>
             Edit({
+              id: crypto.randomUUID(),
               kind: "video",
               title: "",
               status: "Editing",
@@ -210,6 +263,7 @@ export default function VideoReview({ initial }: any) {
                 <select
                   aria-label="Video version"
                   value={current?.id || ""}
+                  disabled={busy}
                   onChange={(e) => V(e.target.value)}
                 >
                   {versions.map((v: any) => (
@@ -231,35 +285,100 @@ export default function VideoReview({ initial }: any) {
                     }}
                   />
                 </label>
+                <button disabled={busy} onClick={() => DriveOpen(!driveOpen)}>
+                  Paste Google Drive Link
+                </button>
               </div>
+              {driveOpen && (
+                <form className="annotation-form" onSubmit={linkDrive}>
+                  <label>
+                    Google Drive video link
+                    <input
+                      type="url"
+                      required
+                      value={driveLink}
+                      disabled={busy}
+                      placeholder="https://drive.google.com/file/d/…/view"
+                      onChange={(e) => DriveLink(e.target.value)}
+                    />
+                  </label>
+                  <p>
+                    The video stays in Drive. This links it for authorized WAM
+                    team review using the connected Google account. Download
+                    permission is required.
+                  </p>
+                  <button className="primary" disabled={busy}>
+                    {busy ? "Saving…" : "Save & review"}
+                  </button>
+                </form>
+              )}
               {url ? (
                 <video
                   key={current?.id}
                   ref={player}
+                  data-version={current?.id}
+                  preload="metadata"
                   className="review-player"
                   src={url}
                   controls
                   playsInline
                   onTimeUpdate={(e) => N(e.currentTarget.currentTime)}
+                  onSeeked={(e) => N(e.currentTarget.currentTime)}
+                  onError={async (e) => {
+                    Ready(false);
+                    const element = e.currentTarget;
+                    const failedVersion = element.dataset.version;
+                    let message =
+                      "This video cannot play in this browser. Use a browser-compatible MP4 (H.264/AAC) or WebM file.";
+                    if (current?.source?.provider === "gdrive-link") {
+                      try {
+                        const response = await fetch(url, {
+                          headers: { Range: "bytes=0-0" },
+                        });
+                        if (!response.ok)
+                          message = (await response.json()).error || message;
+                        else await response.body?.cancel();
+                      } catch {
+                        message =
+                          "Unable to reach Drive. Check your connection and sign-in.";
+                      }
+                    }
+                    if (player.current?.dataset.version === failedVersion)
+                      E(message);
+                  }}
                   onLoadedMetadata={(e) => {
+                    Ready(true);
+                    E("");
                     Dur(e.currentTarget.duration);
                     e.currentTarget.playbackRate = playbackRates[speed];
-                    const jump = sessionStorage.getItem("wam-seek");
-                    if (jump) {
-                      const j = JSON.parse(jump);
-                      if (j.videoId === id && j.versionId === current.id) {
-                        e.currentTarget.currentTime = j.time;
+                    try {
+                      const jump =
+                        pendingSeek.current ||
+                        JSON.parse(
+                          sessionStorage.getItem("wam-seek") || "null",
+                        );
+                      if (
+                        jump?.videoId === id &&
+                        jump.versionId === current.id
+                      ) {
+                        e.currentTarget.currentTime = Math.max(
+                          0,
+                          Math.min(e.currentTarget.duration, jump.time),
+                        );
                         sessionStorage.removeItem("wam-seek");
+                        pendingSeek.current = null;
                       }
+                    } catch {
+                      sessionStorage.removeItem("wam-seek");
                     }
                   }}
                 />
               ) : (
                 <div className="review-empty">
-                  <b>Upload a video to begin review</b>
+                  <b>Upload a video or paste a Drive link to begin review</b>
                   <p>
-                    Your original file stays in this browser. Each version keeps
-                    its own feedback.
+                    Drive links keep the original in Drive. Each version keeps
+                    its own feedback and approval history.
                   </p>
                 </div>
               )}
@@ -280,7 +399,7 @@ export default function VideoReview({ initial }: any) {
                     max="4"
                     step="1"
                     value={speed}
-                    disabled={!url}
+                    disabled={!ready}
                     onChange={(e) => {
                       const index = +e.target.value;
                       Speed(index);
@@ -302,9 +421,9 @@ export default function VideoReview({ initial }: any) {
               </div>
               <div className="review-mark-actions">
                 <button
-                  disabled={!url}
+                  disabled={!ready}
                   onClick={() => {
-                    I(now);
+                    I(player.current?.currentTime ?? now);
                     O(null);
                     ManualTiming(true);
                     Marker(true);
@@ -313,9 +432,9 @@ export default function VideoReview({ initial }: any) {
                   Add marker
                 </button>
                 <button
-                  disabled={!url}
+                  disabled={!ready}
                   onClick={() => {
-                    I(now);
+                    I(player.current?.currentTime ?? now);
                     ManualTiming(true);
                     Marker(true);
                   }}
@@ -323,9 +442,9 @@ export default function VideoReview({ initial }: any) {
                   Set IN
                 </button>
                 <button
-                  disabled={!url}
+                  disabled={!ready}
                   onClick={() => {
-                    O(now);
+                    O(player.current?.currentTime ?? now);
                     ManualTiming(true);
                     Marker(true);
                   }}
@@ -398,7 +517,7 @@ export default function VideoReview({ initial }: any) {
                       checked={manualTiming}
                       onChange={(e) => {
                         ManualTiming(e.target.checked);
-                        I(now);
+                        I(player.current?.currentTime ?? now);
                       }}
                     />
                     Use a custom time or range
@@ -478,7 +597,7 @@ export default function VideoReview({ initial }: any) {
                   type="submit"
                   form="video-review-note"
                   className="primary"
-                  disabled={!current || !text.trim() || busy}
+                  disabled={!current || !ready || !text.trim() || busy}
                 >
                   Save review
                 </button>
@@ -587,7 +706,11 @@ export default function VideoReview({ initial }: any) {
                     data-select-id={a.id}
                     key={a.id}
                   >
-                    <button className="timecode" onClick={() => seek(a.start)}>
+                    <button
+                      className="timecode"
+                      disabled={!ready}
+                      onClick={() => seek(a.start)}
+                    >
                       {timecode(a.start)}
                       {a.end !== null ? "–" + timecode(a.end) : ""}
                     </button>
@@ -637,7 +760,20 @@ export default function VideoReview({ initial }: any) {
       ) : (
         <div className="card empty">Create a video project to start.</div>
       )}
-      {edit && <RecordEditor record={edit} onClose={() => Edit(null)} />}
+      {edit && (
+        <RecordEditor
+          record={edit}
+          onClose={() => {
+            if (
+              getState().records.some((record: any) => record.id === edit.id)
+            ) {
+              ID(edit.id);
+              V("");
+            }
+            Edit(null);
+          }}
+        />
+      )}
       {share && (
         <div className="overlay">
           <section className="modal">

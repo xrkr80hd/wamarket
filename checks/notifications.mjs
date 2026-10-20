@@ -60,4 +60,12 @@ assert.equal((await call('actor','record',{record:{id:'forged',kind:'__notificat
 assert.equal((await call('actor','record',{record:{id:'message-one',kind:'note',title:'Change type'}})).status,400);
 await call('recipient','notifications',{action:'read',all:true});assert((await call('recipient','notifications')).data.items.every(x=>x.read));
 await call('outsider','notifications',{action:'unsubscribe',subscription});assert([...integrations.values()].some(x=>x.subscription));await call('recipient','notifications',{action:'unsubscribe',subscription});assert(![...integrations.values()].some(x=>x.subscription));
+const driveVersion={id:'drive-v1',source:{provider:'gdrive-link',reference:'sealed-original'},status:'Video Draft',reviews:[]};
+const driveVideo={id:'drive-video',kind:'video',title:'Private Drive review',status:'Editing',versions:[driveVersion]};
+rows.set(driveVideo.id,{id:driveVideo.id,data:driveVideo,version:1});
+assert.equal((await call('actor','record',{record:{...driveVideo,versions:[{...driveVersion,source:{provider:'gdrive-link',reference:'replacement'}}]},version:1})).status,403);
+assert.equal((await call('actor','record',{record:{...driveVideo,versions:[{...driveVersion,source:undefined,assetId:'replacement'}]},version:1})).status,403);
+assert.equal((await call('actor','record',{record:{...driveVideo,versions:[driveVersion,driveVersion]},version:1})).status,400);
+assert.equal((await call('actor','record',{record:{...driveVideo,versions:[driveVersion,{...driveVersion,id:'drive-v2',source:{provider:'gdrive-link',reference:'second-cut'}}]},version:1})).status,200);
+console.log('PASS linked Drive sources cannot be replaced in-place; new revisions retain separate identities');
 console.log('PASS notification authentication, private recipients, sender attribution, summary redaction, unread/read state, subscription ownership, VAPID signature and independent push decryption');

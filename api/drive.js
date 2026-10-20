@@ -1,6 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { Readable } from "node:stream";
 import {
+  parseDriveLink,
+  driveVideoMetadata,
+  driveHeaders,
+} from "../lib/drive-review.js";
+import {
   SITE,
   CALLBACK,
   sessionToken,
@@ -65,6 +70,100 @@ export default async function handler(req, res) {
     }
     const u = await me(token),
       admin = u.email?.toLowerCase() === MASTER;
+    if (route === "review-link" || route === "review-file") {
+      if (req.method !== (route === "review-link" ? "POST" : "GET"))
+        return res.status(405).json({ error: "Method not allowed" });
+      if (route === "review-link" && req.headers.origin !== SITE)
+        return res.status(403).json({ error: "Invalid request origin" });
+      const body =
+        typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
+      const videoId = String(
+        route === "review-link" ? body.videoId || "" : req.query.videoId || "",
+      );
+      // The existing state endpoint applies team membership and privateMembers ACLs.
+      const state = await edge(token, "state");
+      const video = state.records.find((row) => row.id === videoId)?.data;
+      if (!video || video.kind !== "video" || video.archived)
+        return res.status(404).json({ error: "Video project not found." });
+      if (
+        route === "review-link" &&
+        !admin &&
+        !["owner", "executive", "coordinator"].includes(
+          u.app_metadata?.wamarket_role,
+        )
+      )
+        return res
+          .status(403)
+          .json({ error: "Only the production team can add video revisions." });
+      const access = await googleToken(await driveConfig(token));
+      if (route === "review-link") {
+        const source = parseDriveLink(String(body.link || ""));
+        const file = await driveVideoMetadata(access, source);
+        return res.json({
+          name: file.name,
+          source: {
+            provider: "gdrive-link",
+            reference: seal({ ...source, videoId, checksum: file.md5Checksum }),
+          },
+        });
+      }
+      const version = video.versions?.find((v) => v.id === req.query.versionId);
+      if (version?.source?.provider !== "gdrive-link")
+        return res.status(404).json({ error: "Drive revision not found." });
+      const source = unseal(version.source.reference);
+      if (source.videoId !== videoId)
+        return res.status(403).json({ error: "Invalid Drive revision." });
+      const file = await driveVideoMetadata(access, source);
+      if (file.md5Checksum !== source.checksum)
+        return res
+          .status(409)
+          .json({
+            error:
+              "The Drive video contents changed. Add its link as a new revision to preserve existing timestamps.",
+          });
+      const range = req.headers.range;
+      if (range && !/^bytes=\d*-\d*$/.test(range))
+        return res.status(416).json({ error: "Invalid video byte range." });
+      const controller = new AbortController();
+      res.on?.("close", () => controller.abort());
+      const upstream = await fetch(
+        "https://www.googleapis.com/drive/v3/files/" +
+          encodeURIComponent(source.fileId) +
+          "?alt=media&supportsAllDrives=true",
+        {
+          headers: {
+            ...driveHeaders(access, source),
+            ...(range ? { Range: range } : {}),
+          },
+          redirect: "error",
+          signal: controller.signal,
+        },
+      );
+      if (upstream.status === 416) {
+        if (upstream.headers.get("content-range"))
+          res.setHeader("Content-Range", upstream.headers.get("content-range"));
+        return res.status(416).end();
+      }
+      if (!upstream.ok)
+        return res
+          .status(upstream.status === 429 ? 429 : 403)
+          .json({
+            error:
+              "Drive could not stream this video. Check its permissions or try again shortly.",
+          });
+      res.status(upstream.status);
+      res.setHeader("Content-Type", file.mimeType);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      for (const name of ["content-length", "content-range", "accept-ranges"]) {
+        const value = upstream.headers.get(name);
+        if (value) res.setHeader(name, value);
+      }
+      // No buffering, upload, public URL, or Google credential reaches the client.
+      Readable.fromWeb(upstream.body)
+        .on("error", () => res.destroy())
+        .pipe(res);
+      return;
+    }
     if (route === "status") {
       const c = await driveConfig(token);
       return res.json({
@@ -162,6 +261,10 @@ export default async function handler(req, res) {
     }
     return res.status(404).json({ error: "Not found" });
   } catch (e) {
+    if (res.headersSent) {
+      res.destroy();
+      return;
+    }
     return res
       .status(e.status || 400)
       .json({ error: e.message || "Google Drive connection failed." });
