@@ -409,3 +409,92 @@
 .password-entry { display: flex; align-items: stretch; gap: 8px; width: 100%; min-width: 0; }
 .password-entry > input { flex: 1 1 auto; min-width: 0; width: 100%; }
 .password-entry > button { flex: 0 0 auto; min-width: 58px; min-height: 40px; }
+
+/* Review player + timeline share one responsive frame and align on phones. */
+.workspace-shell .review-viewer {
+ display:flex;flex-direction:column;align-items:stretch;
+ width:100%;max-width:100%;min-width:0;gap:0
+}
+.workspace-shell .review-viewer.review-viewer-desktop .review-player-stage {
+ aspect-ratio:16 / 10;height:auto;min-height:0;max-height:none
+}
+.workspace-shell .review-viewer>.review-simple-timeline {
+ box-sizing:border-box;width:100%;max-width:100%;min-width:0;
+ margin:6px 0 0;padding:12px
+}
+.workspace-shell .review-viewer>.review-viewer-controls {
+ box-sizing:border-box;width:100%;margin:0;padding:9px 0;gap:8px;
+ display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center
+}
+.workspace-shell .review-viewer .review-view-toggle {display:flex;min-width:0;gap:5px}
+.workspace-shell .review-viewer .review-view-toggle button {min-width:0;flex:1 1 0}
+.workspace-shell .review-viewer .review-fullscreen-control {margin:0}
+.workspace-shell .review-viewer .review-timeline-note {top:7px}
+.workspace-shell .review-viewer .review-timeline-track>input[type=range] {
+ width:100%;min-width:0
+}
+.workspace-shell .review-runtime-field {min-width:0;flex:1}
+.workspace-shell .review-runtime-heading {
+ display:flex;align-items:center;gap:8px;margin-bottom:5px
+}
+.workspace-shell .review-runtime-heading>label {font-size:12px;font-weight:650}
+.workspace-shell .review-runtime-field>input {
+ width:100%;box-sizing:border-box;max-width:100%;
+ font-size:16px;letter-spacing:.06em
+}
+.workspace-shell .review-viewer .review-runtime-form {
+ display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin:7px 0
+}
+.workspace-shell .review-viewer .review-runtime-form button {
+ flex:0 0 auto;min-height:40px
+}
+.workspace-shell .review-runtime-tip {
+ display:inline-block;position:relative;min-width:24px;z-index:10
+}
+.workspace-shell .review-runtime-tip>summary {
+ cursor:pointer;display:flex;align-items:center;justify-content:center;
+ width:24px;height:24px;border-radius:50%;
+ border:1px solid var(--ui-borderColor);list-style:none;
+ font-size:16px;font-weight:600;touch-action:manipulation
+}
+.workspace-shell .review-runtime-tip>summary::-webkit-details-marker {display:none}
+.workspace-shell .review-runtime-tip>p {
+ position:absolute;top:24px;left:0;z-index:20;
+ box-sizing:border-box;width:min(260px,75vw);margin:6px 0 0;padding:10px 12px;
+ font-size:12px;line-height:1.5;border-radius:9px;
+ border:1px solid var(--ui-borderColor);
+ background:var(--ui-cardBg);color:var(--ui-bodyText);box-shadow:0 8px 24px #0004
+}
+.workspace-shell .review-submit-actions {
+ display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));
+ align-items:stretch;gap:8px;width:100%
+}
+.workspace-shell .review-submit-actions>button {
+ box-sizing:border-box;width:100%;min-width:0;max-width:100%;
+ margin:0!important;white-space:normal;min-height:42px
+}
+.workspace-shell .review-viewer.review-viewer-expanded .review-player-stage,
+.workspace-shell .review-viewer:fullscreen .review-player-stage {
+ aspect-ratio:auto!important
+}
+@media(max-width:600px) {
+ .workspace-shell .review-viewer.review-viewer-mobile {width:min(100%,255px)}
+ .workspace-shell .review-viewer.review-viewer-desktop .review-player-stage {
+  aspect-ratio:16 / 10;max-height:none
+ }
+ .workspace-shell .review-viewer>.review-simple-timeline {
+  padding:10px 8px;margin-top:5px
+ }
+ .workspace-shell .review-viewer>.review-viewer-controls {gap:4px}
+ .workspace-shell .review-viewer .review-viewer-controls-label {font-size:11px}
+ .workspace-shell .review-viewer .review-viewer-controls button {
+  font-size:10px;min-height:40px;padding:7px 6px
+ }
+ .workspace-shell .review-viewer .review-time-labels {font-size:12px}
+ .workspace-shell .review-viewer .review-transport {gap:4px}
+ .workspace-shell .review-viewer .review-transport button {
+  min-height:42px;font-size:10px;padding:7px 6px
+ }
+ .workspace-shell .review-runtime-tip>p {left:auto;right:-20px}
+ .workspace-shell .review-submit-actions>button {font-size:11px;min-height:44px}
+}
