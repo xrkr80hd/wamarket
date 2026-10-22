@@ -8,7 +8,9 @@ import {
 } from "./preview-store";
 import { flushCloudWorkspace } from "./cloud-workspace";
 import { parseDriveLink } from "./drive-review.js";
-export async function addDriveVideoVersion(videoId: string, link: string) {
+export async function addDriveVideoVersion(videoId: string, link: string, durationSeconds?: number) {
+  if (durationSeconds !== undefined && (!Number.isFinite(durationSeconds) || durationSeconds <= 0 || durationSeconds > 86400))
+    throw Error("Enter a valid video runtime.");
   if (!sessionStorage.getItem("wam-cloud-auth"))
     throw Error(
       "Sign in to the shared workspace to link a private Drive video.",
@@ -26,6 +28,7 @@ export async function addDriveVideoVersion(videoId: string, link: string) {
   const version = {
     id: crypto.randomUUID(),
     source: { provider: "gdrive-public", fileId, resourceKey },
+    ...(durationSeconds ? { durationSeconds } : {}),
     originalName: "Shared Google Drive video",
     name: "Version " + ((video.versions || []).length + 1),
     createdBy: user().name,
