@@ -74,6 +74,12 @@ await check('Review runtime parsing and simple timestamp UI',()=>{
  for(const label of ['Video review timeline','Choose a time to leave a note','07:32','Desktop video view','Mobile video view','review-viewer-controls','＋ Note','How to enter video length'])
    assert(html.includes(label),label);
  assert(!html.includes('review-expand-button'));
+ assert(html.includes('review-drive-link-preview'));
+ assert(html.includes('review-drive-link-status'));
+ assert(html.includes('review-simple-timeline'));
+ assert(html.includes('review-viewer-controls'));
+ assert(html.indexOf('review-drive-link-preview') < html.indexOf('review-simple-timeline'));
+ assert(html.indexOf('review-simple-timeline') < html.indexOf('review-viewer-controls'));
  const after=getState().records.find((r:any)=>r.id==='demo-video');
  saveRecord({...after,versions:after.versions.filter((v:any)=>v.id!=='runtime-check')});
  assert.equal(getState().records.find((r:any)=>r.id==='demo-video').versions.length,prior);
