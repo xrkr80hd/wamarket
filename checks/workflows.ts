@@ -3,7 +3,7 @@ import DayPlanner from '../app/day-planner';
 import{directChat,sendChatMedia}from '../lib/chat-media';
 import{dayPlan,createDayTask,completeDayTask}from '../lib/day-planner';
 import 'fake-indexeddb/auto';import assert from'node:assert/strict';import{renderToString}from'react-dom/server';import React from'react';
-import{getState,mutate,setUser,user,saveRecord,addAsset,readFile,fileURL,conversation,locations}from'../lib/preview-store';import{addDriveVideoVersion,addVideoVersion,addAnnotation,setAnnotationStatus,reviewVersion,sendLocalMessage}from'../lib/review-actions';import{bulkItems,updateItem}from'../lib/item-actions';import{apiFetch}from'../lib/api-response';import{quoteForDay}from'../lib/daily-quotes';import{appearance,contrast}from'../lib/appearance';
+import{getState,mutate,setUser,user,saveRecord,addAsset,readFile,fileURL,conversation,locations}from'../lib/preview-store';import{addDriveVideoVersion,addVideoVersion,addAnnotation,updateAnnotation,archiveAnnotation,setAnnotationStatus,reviewVersion,sendLocalMessage}from'../lib/review-actions';import{bulkItems,updateItem}from'../lib/item-actions';import{apiFetch}from'../lib/api-response';import{quoteForDay}from'../lib/daily-quotes';import{appearance,contrast}from'../lib/appearance';
 import{Operations,DailyQuote}from'../app/operations';import Library from'../app/library';import VideoReview from'../app/video-review';import ShotStudio from'../app/shot-studio';import{PlanningCalendar,TaskBoard,Reports}from'../app/planning';import PreviewAdmin,{RoleOverview}from'../app/preview-admin';import TeamMessenger from'../app/messenger-inbox';import ThemeStudio from'../app/theme-workbench';import ArchiveRoom from'../app/archive-room';import{themePresets}from'../lib/theme-presets';
 const storage=()=>{const m=new Map();return{getItem:(k:string)=>m.get(k)||null,setItem:(k:string,v:string)=>m.set(k,v),removeItem:(k:string)=>m.delete(k),clear:()=>m.clear()}};Object.assign(globalThis,{localStorage:storage(),sessionStorage:storage()});const events=new EventTarget();Object.assign(globalThis,{window:{location:{origin:'http://localhost'},dispatchEvent:events.dispatchEvent.bind(events),addEventListener:events.addEventListener.bind(events),removeEventListener:events.removeEventListener.bind(events)}});
 let count=0;async function check(name:string,fn:()=>any){await fn();console.log('PASS '+name);count++}
@@ -54,6 +54,22 @@ await check('Linked Drive revisions preserve approvals, per-cut annotations and 
   await assert.rejects(addDriveVideoVersion(videoId,'https://drive.google.com/file/d/private_video_123/view'),/Restricted/);assert.equal(getState().records.find((r:any)=>r.id===videoId).versions.length,2);
   setUser('mckenzie');
  } finally {globalThis.fetch=realFetch;sessionStorage.removeItem('wam-cloud-auth')}
+});
+await check('Review marker edit/delete preserves existing video files and versions',async()=>{
+  setUser('travis');
+  const videoBefore=getState().records.find((r:any)=>r.id==='demo-video');
+  const versionsBefore=JSON.stringify(videoBefore.versions);
+  const marker=addAnnotation('demo-video',version.id,{start:12,end:15,type:'TRIM',text:'Remove pause',priority:'Normal'});
+  updateAnnotation(marker.id,{start:13.5,end:16,type:'AUDIO FIX',text:'Reduce wind noise',priority:'High'});
+  const edited=getState().annotations.find((a:any)=>a.id===marker.id);
+  assert.equal(edited.start,13.5);assert.equal(edited.end,16);assert.equal(edited.type,'AUDIO FIX');
+  assert(getState().records.find((r:any)=>r.id==='demo-video').tasks.some((t:any)=>t.annotationId===marker.id&&t.urgency==='High'));
+  archiveAnnotation(marker.id);
+  assert.equal(getState().annotations.find((a:any)=>a.id===marker.id).archived,true);
+  const after=getState().records.find((r:any)=>r.id==='demo-video');
+  assert.equal(JSON.stringify(after.versions),versionsBefore);
+  assert(!after.tasks.some((t:any)=>t.annotationId===marker.id));
+  assert((await readFile(version.assetId))!.size>0);
 });
 await check('All major modules render without runtime errors',()=>{const props={onReview:()=>{},onGo:()=>{},onClose:()=>{},onSave:()=>true,preferences:getState().preferences.mckenzie};for(const C of [QuickIdeas,DayPlanner,Library,VideoReview,ShotStudio,PlanningCalendar,TaskBoard,Reports,PreviewAdmin,RoleOverview,TeamMessenger,ThemeStudio,ArchiveRoom,DailyQuote]){const html=renderToString(React.createElement(C,{...props,active:true}));assert(html.length>10,C.name)}for(const section of ['Campaigns','Video production','Ideas library','Social planner'])assert(renderToString(React.createElement(Operations,{...props,section})).length>50)});
 console.log(`\n${count} workflow checks passed. Browser playback, layout, touch and drag/drop remain pending browser permission.`);
