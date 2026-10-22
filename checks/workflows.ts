@@ -49,7 +49,7 @@ await check('Linked Drive revisions preserve approvals, per-cut annotations and 
   assert(getState().annotations.some((a:any)=>a.versionId===first.id&&a.start===4.125));assert(!getState().annotations.some((a:any)=>a.versionId===second.id));
   assert.equal(calls,2);assert.equal(first.source.provider,'gdrive-link');
   setUser('lawrence');const shared=sendLocalMessage('team',{text:'Review this cut',annotation:{videoId,versionId:first.id,time:4.125}});assert.equal(shared.annotation.versionId,first.id);
-  setUser('mckenzie');const html=renderToString(React.createElement(VideoReview,{initial:videoId}));assert(html.includes('Paste Google Drive Link'));assert(html.includes('Upload new version'));assert(html.includes('Expand video to full screen'));
+  setUser('mckenzie');const html=renderToString(React.createElement(VideoReview,{initial:videoId}));assert(html.includes('Paste Google Drive Link'));assert(html.includes('Upload new version'));assert(html.includes('Expand video to full screen'));assert(html.includes('Desktop video view'));assert(html.includes('Mobile video view'));assert(html.includes('review-viewer-controls'));assert(!html.includes('review-expand-button'));
   setUser('travis');globalThis.fetch=async()=>Response.json({error:'Restricted file'},{status:403});
   await assert.rejects(addDriveVideoVersion(videoId,'https://drive.google.com/file/d/private_video_123/view'),/Restricted/);assert.equal(getState().records.find((r:any)=>r.id===videoId).versions.length,2);
   setUser('mckenzie');
