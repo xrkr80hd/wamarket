@@ -19,7 +19,7 @@ import {
   conversation,
 } from "../lib/preview-store";
 const playbackRates = [0.25, 0.5, 1, 1.5, 2];
-import { timecode, reviewPlaybackURL } from "../lib/drive-review.js";
+import { timecode, reviewPlaybackURL, publicDriveEmbedURL } from "../lib/drive-review.js";
 export { timecode };
 export default function VideoReview({ initial }: any) {
   const s = useWorkspace(),
@@ -61,6 +61,8 @@ export default function VideoReview({ initial }: any) {
   const video = s.records.find((r: any) => r.id === id),
     versions = video?.versions || [],
     current = versions.find((v: any) => v.id === version) || versions.at(-1),
+    publicDrive = current?.source?.provider === "gdrive-public",
+    publicDriveURL = publicDrive ? publicDriveEmbedURL(current.source) : "",
     annotations = s.annotations.filter(
       (a: any) =>
         !a.archived && a.videoId === id && a.versionId === current?.id,
@@ -79,7 +81,7 @@ export default function VideoReview({ initial }: any) {
     I(0);
     O(null);
     Marker(false);
-    ManualTiming(false);
+    ManualTiming(current?.source?.provider === "gdrive-public");
     Text("");
     RF(null);
     E("");
@@ -122,6 +124,12 @@ export default function VideoReview({ initial }: any) {
     return () => window.removeEventListener("wam-review-link", jump);
   }, []);
   function seek(t: number) {
+    if (publicDrive) {
+      I(t);
+      ManualTiming(true);
+      Marker(true);
+      return;
+    }
     const element = player.current;
     if (element && element.readyState >= 1 && Number.isFinite(t)) {
       element.currentTime = Math.min(
@@ -181,7 +189,7 @@ export default function VideoReview({ initial }: any) {
     e.preventDefault();
     E("");
     try {
-      if (!current || !ready)
+      if (!current || (!publicDrive && !ready))
         throw Error("Wait for video playback to load before annotating");
       if (
         start < 0 ||
@@ -192,8 +200,8 @@ export default function VideoReview({ initial }: any) {
       const capturedTime = player.current?.currentTime ?? now;
       const reference = refFile ? await addAsset(refFile) : "";
       addAnnotation(id, current.id, {
-        start: manualTiming ? start : capturedTime,
-        end: manualTiming ? end : null,
+        start: publicDrive || manualTiming ? start : capturedTime,
+        end: publicDrive || manualTiming ? end : null,
         type,
         text,
         priority,
@@ -303,16 +311,44 @@ export default function VideoReview({ initial }: any) {
                     />
                   </label>
                   <p>
-                    The video stays in Drive. This links it for authorized WAM
-                    team review using the connected Google account. Download
-                    permission is required.
+                    Set the video in Google Drive to "Anyone with the link"
+                    and "Viewer". The video stays in Drive and plays below.
+                    No Google account connection or duplicate upload is needed.
+                    Anyone with the link can open the original on Drive.
                   </p>
                   <button className="primary" disabled={busy}>
                     {busy ? "Saving…" : "Save & review"}
                   </button>
                 </form>
               )}
-              {url ? (
+              {publicDrive ? (
+                publicDriveURL ? (
+                  <>
+                    <iframe
+                      key={current?.id}
+                      title={video.title + " shared Google Drive video"}
+                      className="review-player"
+                      src={publicDriveURL}
+                      loading="lazy"
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                      referrerPolicy="no-referrer"
+                      style={{ display: "block", border: 0 }}
+                    />
+                    <p className="review-drive-hint">
+                      Play using the Google Drive controls. To leave a timed
+                      review, enter the player's timestamp under Timing &amp;
+                      extra details in seconds (90 means 01:30). Google does
+                      not expose playback time or seeking to WAM.
+                    </p>
+                  </>
+                ) : (
+                  <p className="notice" role="alert">
+                    Invalid linked video. Add a new revision with a valid
+                    Google Drive share URL.
+                  </p>
+                )
+              ) : url ? (
                 <video
                   key={current?.id}
                   ref={player}
@@ -382,6 +418,7 @@ export default function VideoReview({ initial }: any) {
                   </p>
                 </div>
               )}
+              {!publicDrive && (
               <div className="review-player-controls">
                 <output aria-label="Playback time">
                   {timecode(now)} / {timecode(duration)}
@@ -419,6 +456,14 @@ export default function VideoReview({ initial }: any) {
                   </div>
                 </div>
               </div>
+              )}
+              {publicDrive ? (
+                <div className="review-mark-actions">
+                  <button onClick={() => { ManualTiming(true); Marker(true); }}>
+                    Add timed marker
+                  </button>
+                </div>
+              ) : (
               <div className="review-mark-actions">
                 <button
                   disabled={!ready}
@@ -452,12 +497,14 @@ export default function VideoReview({ initial }: any) {
                   Set OUT
                 </button>
               </div>
+              )}
               {draftMarker && (
                 <div className="review-range-readout">
                   IN {timecode(start)}
                   {end !== null ? " · OUT " + timecode(end) : ""}
                 </div>
               )}
+              {!publicDrive && (
               <div className="review-timeline" aria-label="Annotation timeline">
                 {draftMarker && (
                   <span
@@ -490,6 +537,7 @@ export default function VideoReview({ initial }: any) {
                   </button>
                 ))}
               </div>
+              )}
               <form
                 id="video-review-note"
                 className="annotation-form"
@@ -500,7 +548,7 @@ export default function VideoReview({ initial }: any) {
                 </h3>
                 <label>
                   What needs to change?{" "}
-                  <small>At {timecode(manualTiming ? start : now)}</small>
+                  <small>At {timecode(publicDrive || manualTiming ? start : now)}</small>
                   <textarea
                     required
                     rows={2}
@@ -509,12 +557,13 @@ export default function VideoReview({ initial }: any) {
                     placeholder="Write a note about this part of the video…"
                   />
                 </label>
-                <details className="review-options">
+                <details className="review-options" open={publicDrive}>
                   <summary>Timing & extra details</summary>
                   <label className="review-range-toggle">
                     <input
                       type="checkbox"
-                      checked={manualTiming}
+                      checked={manualTiming || publicDrive}
+                      disabled={publicDrive}
                       onChange={(e) => {
                         ManualTiming(e.target.checked);
                         I(player.current?.currentTime ?? now);
@@ -597,7 +646,7 @@ export default function VideoReview({ initial }: any) {
                   type="submit"
                   form="video-review-note"
                   className="primary"
-                  disabled={!current || !ready || !text.trim() || busy}
+                  disabled={!current || (!ready && !publicDrive) || !text.trim() || busy}
                 >
                   Save review
                 </button>

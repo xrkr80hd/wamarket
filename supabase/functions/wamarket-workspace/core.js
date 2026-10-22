@@ -305,8 +305,8 @@ export function createWorkspaceHandler(env, fetcher = fetch) {
           const previous = old?.data.versions?.find((v) => v.id === version.id);
           if (
             previous &&
-            (previous.source?.provider === "gdrive-link" ||
-              version.source?.provider === "gdrive-link") &&
+            (["gdrive-link", "gdrive-public"].includes(previous.source?.provider) ||
+              ["gdrive-link", "gdrive-public"].includes(version.source?.provider)) &&
             (JSON.stringify(previous.source) !==
               JSON.stringify(version.source) ||
               previous.assetId !== version.assetId)

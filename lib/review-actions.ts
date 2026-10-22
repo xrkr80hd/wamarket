@@ -7,6 +7,7 @@ import {
   conversation,
 } from "./preview-store";
 import { flushCloudWorkspace } from "./cloud-workspace";
+import { parseDriveLink } from "./drive-review.js";
 export async function addDriveVideoVersion(videoId: string, link: string) {
   if (!sessionStorage.getItem("wam-cloud-auth"))
     throw Error(
@@ -14,15 +15,9 @@ export async function addDriveVideoVersion(videoId: string, link: string) {
     );
   if (!["owner", "executive", "coordinator"].includes(user().role))
     throw Error("Only the production team can add video revisions.");
+  // Public viewer links need no Google account, token, or video upload.
+  const { fileId, resourceKey } = parseDriveLink(link);
   await flushCloudWorkspace();
-  const response = await fetch("/api/drive?route=review-link", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ videoId, link }),
-  });
-  const data = await response.json();
-  if (!response.ok) throw Error(data.error || "Unable to link Drive video.");
   // Re-read after network work so a revision cannot erase an intervening update.
   const video = getState().records.find(
     (r: any) => r.id === videoId && r.kind === "video",
@@ -30,8 +25,8 @@ export async function addDriveVideoVersion(videoId: string, link: string) {
   if (!video || video.archived) throw Error("Video project not found");
   const version = {
     id: crypto.randomUUID(),
-    source: data.source,
-    originalName: data.name,
+    source: { provider: "gdrive-public", fileId, resourceKey },
+    originalName: "Shared Google Drive video",
     name: "Version " + ((video.versions || []).length + 1),
     createdBy: user().name,
     createdAt: new Date().toISOString(),

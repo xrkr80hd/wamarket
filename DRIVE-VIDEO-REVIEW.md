@@ -1,4 +1,12 @@
-# Drive-linked video review
+# Current public Drive-link review workflow
+
+Set the Drive file share setting to **Anyone with the link → Viewer**, paste its shared URL into WAM Video Review, then **Save & review**. The browser embeds Google's own player; no Drive OAuth connection, duplicate upload, or WAM media storage is used. WAM still protects team notes and approvals with its site login. People with the original Drive link can access that file independently.
+
+The embedded Drive player does not expose its playhead time or seek API to WAM. Timed feedback therefore uses manually entered IN/OUT seconds (90 = 01:30); WAM cannot automatically jump its player to an annotation. Uploading a video directly instead uses the team's paid Supabase video bucket. Existing private-OAuth revisions continue to use their legacy authenticated streaming mode.
+
+---
+
+# Earlier private Drive-link implementation (legacy)
 
 ## Architecture audit
 

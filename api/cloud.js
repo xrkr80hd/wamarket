@@ -33,7 +33,9 @@ export default async function handler(req, res) {
     const body =
       typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
     const bearer = decodeURIComponent(token);
-    if (route === "media-upload" && req.method === "POST") {
+    if (route === "media-upload" && req.method === "POST" &&
+        !String(body.type || "").startsWith("video/")) {
+      // Video uploads use the team's Supabase bucket, not Drive OAuth.
       const drive = await driveUpload(bearer, body);
       if (drive) return res.json(drive);
     }
