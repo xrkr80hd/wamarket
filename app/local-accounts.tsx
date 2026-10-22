@@ -61,6 +61,7 @@ function LocalAccountsPreview() {
     [draft, Edit] = useState<any>(null),
     [email, Email] = useState(""),
     [password, Password] = useState(""),
+    [showPassword, ShowPassword] = useState(false),
     [name, Name] = useState("Travis");
   const s = useWorkspace();
   async function load() {
@@ -150,16 +151,18 @@ function LocalAccountsPreview() {
             </label>
             <label>
               Password
-              <input
-                type="password"
-                minLength={10}
-                required
-                value={password}
-                onChange={(e) => Password(e.target.value)}
-                autoComplete={
-                  data.setupRequired ? "new-password" : "current-password"
-                }
-              />
+              <div className="password-entry">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  minLength={10}
+                  required
+                  value={password}
+                  onChange={(e) => Password(e.target.value)}
+                  autoComplete={data.setupRequired ? "new-password" : "current-password"}
+                />
+                <button type="button" aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => ShowPassword(!showPassword)}>{showPassword ? "Hide" : "Show"}</button>
+              </div>
             </label>
             <button className="primary" disabled={busy}>
               {busy
@@ -331,14 +334,18 @@ function LocalAccountsPreview() {
               {draft.id
                 ? "New password (leave blank to keep)"
                 : "Initial password"}
-              <input
-                type="password"
-                required={!draft.id}
-                minLength={draft.password ? 10 : undefined}
-                autoComplete="new-password"
-                value={draft.password}
-                onChange={(e) => Edit({ ...draft, password: e.target.value })}
-              />
+              <div className="password-entry">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required={!draft.id}
+                  minLength={draft.password ? 10 : undefined}
+                  autoComplete="new-password"
+                  value={draft.password}
+                  onChange={(e) => Edit({ ...draft, password: e.target.value })}
+                />
+                <button type="button" aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => ShowPassword(!showPassword)}>{showPassword ? "Hide" : "Show"}</button>
+              </div>
             </label>
             <label>
               Role
