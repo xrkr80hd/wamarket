@@ -44,6 +44,7 @@ export default function VideoReview({ initial }: any) {
     [ready, Ready] = useState(false),
     [speed, Speed] = useState(2),
     [draftMarker, Marker] = useState(false),
+    [expandedPlayer, ExpandedPlayer] = useState(false),
     [editingMarkerId, EditingMarker] = useState<string | null>(null),
     [now, N] = useState(0),
     [duration, Dur] = useState(0),
@@ -62,6 +63,7 @@ export default function VideoReview({ initial }: any) {
     [share, Share] = useState<any>(null),
     [dest, Dest] = useState("team");
   const player = useRef<HTMLVideoElement>(null);
+  const playerStage = useRef<HTMLDivElement>(null);
   const video = s.records.find((r: any) => r.id === id),
     versions = video?.versions || [],
     current = versions.find((v: any) => v.id === version) || versions.at(-1),
@@ -85,6 +87,7 @@ export default function VideoReview({ initial }: any) {
     I(0);
     O(null);
     Marker(false);
+    ExpandedPlayer(false);
     EditingMarker(null);
     ManualTiming(current?.source?.provider === "gdrive-public");
     Text("");
@@ -128,6 +131,56 @@ export default function VideoReview({ initial }: any) {
     window.addEventListener("wam-review-link", jump);
     return () => window.removeEventListener("wam-review-link", jump);
   }, []);
+
+  useEffect(() => {
+    if (!expandedPlayer) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closePlayer();
+    };
+    const onFullscreenChange = () => {
+      // Back gesture/native exit restores the normal embedded player.
+      if (!document.fullscreenElement) ExpandedPlayer(false);
+    };
+    document.addEventListener("keydown", onEscape);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onEscape);
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+    };
+  }, [expandedPlayer]);
+
+  function expandPlayer() {
+    const stage = playerStage.current;
+    if (!stage) return;
+    ExpandedPlayer(true);
+    // Fullscreen API keeps the same iframe/video mounted and playback position intact.
+    // If the browser/PWA rejects it, the fixed in-app mobile viewer remains usable.
+    if (stage.requestFullscreen) {
+      void stage.requestFullscreen().catch(() => {});
+    }
+  }
+  function closePlayer() {
+    ExpandedPlayer(false);
+    if (document.fullscreenElement === playerStage.current) {
+      void document.exitFullscreen().catch(() => {});
+    }
+  }
+  function expandControl() {
+    return (
+      <button
+        type="button"
+        className="review-expand-button"
+        aria-label={expandedPlayer ? "Close full screen video" : "Expand video to full screen"}
+        aria-pressed={expandedPlayer}
+        onClick={expandedPlayer ? closePlayer : expandPlayer}
+      >
+        <span aria-hidden="true">{expandedPlayer ? "✕ Close" : "⛶ Full screen"}</span>
+      </button>
+    );
+  }
   function seek(t: number) {
     if (publicDrive) {
       I(t);
@@ -397,6 +450,11 @@ export default function VideoReview({ initial }: any) {
               {publicDrive ? (
                 publicDriveURL ? (
                   <>
+                    <div
+                      ref={playerStage}
+                      className={"review-player-stage" + (expandedPlayer ? " review-player-expanded" : "")}
+                      aria-label="Google Drive video player"
+                    >
                     <iframe
                       key={current?.id}
                       title={video.title + " shared Google Drive video"}
@@ -408,6 +466,8 @@ export default function VideoReview({ initial }: any) {
                       referrerPolicy="no-referrer"
                       style={{ display: "block", border: 0 }}
                     />
+                    {expandControl()}
+                    </div>
                     <p className="review-drive-hint">
                       Play using the Google Drive controls. To leave a timed
                       review, enter the player's timestamp under Timing &amp;
@@ -422,6 +482,11 @@ export default function VideoReview({ initial }: any) {
                   </p>
                 )
               ) : url ? (
+                <div
+                  ref={playerStage}
+                  className={"review-player-stage" + (expandedPlayer ? " review-player-expanded" : "")}
+                  aria-label="Uploaded video player"
+                >
                 <video
                   key={current?.id}
                   ref={player}
@@ -482,6 +547,8 @@ export default function VideoReview({ initial }: any) {
                     }
                   }}
                 />
+                {expandControl()}
+                </div>
               ) : (
                 <div className="review-empty">
                   <b>Upload a video or paste a Drive link to begin review</b>
