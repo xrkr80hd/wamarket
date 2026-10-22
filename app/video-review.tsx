@@ -574,7 +574,7 @@ export default function VideoReview({ initial }: any) {
                 </button>
               </div>
               {driveOpen && (
-                <form className="annotation-form" onSubmit={linkDrive}>
+                <form className="annotation-form review-link-form" onSubmit={linkDrive}>
                   <label>
                     Google Drive video link
                     <input
@@ -597,11 +597,9 @@ export default function VideoReview({ initial }: any) {
                     <input id="drive-video-length" type="text" inputMode="numeric" placeholder="00:00" required
                       value={driveRuntime} onChange={(e) => DriveRuntime(formatReviewRuntimeInput(e.target.value))} />
                   </div>
-                  <p>
-                    Set the video in Google Drive to "Anyone with the link"
-                    and "Viewer". The video stays in Drive and plays below.
-                    No Google account connection or duplicate upload is needed.
-                    Anyone with the link can open the original on Drive.
+                  <p className="review-link-help">
+                    In Drive, set access to "Anyone with the link" and "Viewer".
+                    Your video stays in Drive.
                   </p>
                   <button className="primary" disabled={busy}>
                     {busy ? "Saving…" : "Save & review"}
@@ -629,6 +627,16 @@ export default function VideoReview({ initial }: any) {
                       style={{ display: "block", border: 0 }}
                     />
                     </div>
+                    <a className="review-drive-link-preview" href={publicDriveURL}
+                       target="_blank" rel="noopener noreferrer"
+                       aria-label="Open linked video on Google Drive">
+                      <span className="review-drive-link-icon" aria-hidden="true">↗</span>
+                      <span className="review-drive-link-copy">
+                        <strong>Google Drive video</strong>
+                        <small>drive.google.com</small>
+                      </span>
+                      <span className="review-drive-link-status">Linked</span>
+                    </a>
                     {reviewTimeline()}
                     {playerControls()}
                     </div>
@@ -724,7 +732,7 @@ export default function VideoReview({ initial }: any) {
               {draftMarker && (
               <form
                 id="video-review-note"
-                className="annotation-form"
+                className="annotation-form review-note-form"
                 onSubmit={annotate}
               >
                 <h3>
@@ -896,9 +904,6 @@ export default function VideoReview({ initial }: any) {
             </section>
             <section className="card panel review-notes" id="video-review-markers">
               <h3>Saved markers ({annotations.length})</h3>
-              {publicDrive && (
-                <p>Drive playback runs in Google's player. Marker times are entered manually in seconds.</p>
-              )}
               <div className="sectionhead">
                 <h2>Review feedback</h2>
                 <span className="badge">
