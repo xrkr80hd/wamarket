@@ -17,6 +17,7 @@ export default function CloudAccounts() {
     [draft, D] = useState<any>(null),
     [error, E] = useState(""),
     [busy, B] = useState(false),
+    [showPassword, ShowPassword] = useState(false),
     [notice, N] = useState("");
   async function load() {
     try {
@@ -40,6 +41,7 @@ export default function CloudAccounts() {
           </div>
           <button
             onClick={() => {
+              ShowPassword(false);
               D({
                 name: "",
                 email: "",
@@ -70,6 +72,7 @@ export default function CloudAccounts() {
               <button
                 onClick={() => {
                   D({ ...p, password: "" });
+                  ShowPassword(false);
                   E("");
                   N("");
                 }}
@@ -128,14 +131,18 @@ export default function CloudAccounts() {
               </label>
               <label>
                 {draft.id ? "New password (optional)" : "Initial password"}
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  required={!draft.id}
-                  minLength={12}
-                  value={draft.password}
-                  onChange={(e) => D({ ...draft, password: e.target.value })}
-                />
+                <div className="password-entry">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    required={!draft.id}
+                    minLength={12}
+                    value={draft.password}
+                    onChange={(e) => D({ ...draft, password: e.target.value })}
+                  />
+                  <button type="button" aria-label={showPassword ? "Hide password" : "Show password"}
+                    onClick={() => ShowPassword(!showPassword)}>{showPassword ? "Hide" : "Show"}</button>
+                </div>
               </label>
               <label>
                 Role
