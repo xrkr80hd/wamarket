@@ -36,6 +36,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       () => new URLSearchParams(location.search).get("email") || "",
     ),
     [password, P] = useState(""),
+    [showPassword, ShowPassword] = useState(false),
     [setup, S] = useState(Boolean(setupKey)),
     [busy, B] = useState(false),
     [error, X] = useState(""),
@@ -229,14 +230,18 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
             </label>
             <label>
               Password
-              <input
-                type="password"
-                autoComplete={setup ? "new-password" : "current-password"}
-                required
-                minLength={setup ? 12 : undefined}
-                value={password}
-                onChange={(e) => P(e.target.value)}
-              />
+              <div className="password-entry">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  autoComplete={setup ? "new-password" : "current-password"}
+                  required
+                  minLength={setup ? 12 : undefined}
+                  value={password}
+                  onChange={(e) => P(e.target.value)}
+                />
+                <button type="button" aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => ShowPassword(!showPassword)}>{showPassword ? "Hide" : "Show"}</button>
+              </div>
             </label>
             {error && <p role="alert">{error}</p>}
             {message && <p role="status">{message}</p>}
