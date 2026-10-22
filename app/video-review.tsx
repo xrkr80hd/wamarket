@@ -22,6 +22,19 @@ import {
   conversation,
 } from "../lib/preview-store";
 const playbackRates = [0.25, 0.5, 1, 1.5, 2];
+export function parseReviewRuntime(value: string): number {
+  const p = value.trim().split(":");
+  if (p.length < 2 || p.length > 3 || !p.every(x => /^\d{1,3}$/.test(x))) return 0;
+  const n = p.map(Number);
+  if (n.at(-1)! >= 60 || (n.length === 3 && n[1] >= 60)) return 0;
+  const t = n.reduce((s, x) => s * 60 + x, 0);
+  return t > 0 && t <= 86400 ? t : 0;
+}
+function shortTime(t: number): string {
+  const s = Math.max(0, Math.floor(Number.isFinite(t) ? t : 0));
+  return (s >= 3600 ? Math.floor(s / 3600) + ":" : "") +
+    String(Math.floor(s / 60) % 60).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+}
 import { timecode, reviewPlaybackURL, publicDriveEmbedURL } from "../lib/drive-review.js";
 export { timecode };
 export default function VideoReview({ initial }: any) {
@@ -41,6 +54,10 @@ export default function VideoReview({ initial }: any) {
     [url, U] = useState(""),
     [driveOpen, DriveOpen] = useState(false),
     [driveLink, DriveLink] = useState(""),
+    [driveRuntime, DriveRuntime] = useState(""),
+    [runtimeDraft, RuntimeDraft] = useState(""),
+    [selectedNoteId, SelectedNoteId] = useState<string | null>(null),
+    [playing, Playing] = useState(false),
     [ready, Ready] = useState(false),
     [speed, Speed] = useState(2),
     [draftMarker, Marker] = useState(false),
@@ -70,6 +87,8 @@ export default function VideoReview({ initial }: any) {
     current = versions.find((v: any) => v.id === version) || versions.at(-1),
     publicDrive = current?.source?.provider === "gdrive-public",
     publicDriveURL = publicDrive ? publicDriveEmbedURL(current.source) : "",
+    timelineDuration = publicDrive ? Number(current?.durationSeconds || 0) : duration,
+    selectedNote = s.annotations.find((a: any) => a.id === selectedNoteId && !a.archived && a.videoId === id && a.versionId === current?.id),
     annotations = s.annotations.filter(
       (a: any) =>
         !a.archived && a.videoId === id && a.versionId === current?.id,
@@ -84,6 +103,9 @@ export default function VideoReview({ initial }: any) {
     U("");
     Ready(false);
     N(0);
+    Playing(false);
+    SelectedNoteId(null);
+    RuntimeDraft("");
     Dur(0);
     I(0);
     O(null);
@@ -205,26 +227,32 @@ export default function VideoReview({ initial }: any) {
       </div>
     );
   }
+  // Native video is synchronized; public Google Drive iframes do not expose a seeking API.
   function seek(t: number) {
-    if (publicDrive) {
-      I(t);
-      ManualTiming(true);
-      Marker(true);
-      return;
-    }
-    const element = player.current;
-    if (element && element.readyState >= 1 && Number.isFinite(t)) {
-      element.currentTime = Math.min(
-        element.duration || Infinity,
-        Math.max(0, t),
-      );
-      N(element.currentTime);
-    }
+    if (!Number.isFinite(t)) return;
+    const clamped = Math.max(0, Math.min(timelineDuration || 0, t));
+    if (!publicDrive && player.current?.readyState) player.current.currentTime = clamped;
+    N(clamped);
   }
-
-  function beginMarker() {
+  function skipBy(delta: number) { seek((player.current?.currentTime ?? now) + delta); }
+  async function togglePlayback() {
+    const p = player.current;
+    if (!p || !ready || publicDrive) return;
+    if (!p.paused) { p.pause(); Playing(false); return; }
+    try { await p.play(); Playing(true); }
+    catch { E("Playback was blocked. Tap Play to try again."); }
+  }
+  function stopPlayback() {
+    player.current?.pause();
+    Playing(false);
+    seek(0);
+  }
+  function prepareMarkerAt(at: number) {
+    if (!current || (!publicDrive && !ready) || timelineDuration <= 0) return;
+    seek(at);
+    SelectedNoteId(null);
     EditingMarker(null);
-    I(publicDrive ? 0 : (player.current?.currentTime ?? now));
+    I(Math.max(0, Math.min(timelineDuration, at)));
     O(null);
     T("GENERAL NOTE");
     P("Normal");
@@ -233,11 +261,18 @@ export default function VideoReview({ initial }: any) {
     ManualTiming(true);
     Marker(true);
     E("");
-    document.getElementById("video-review-note")?.scrollIntoView({
-      behavior: "smooth", block: "center",
-    });
+  }
+  function openMarker(a: any) {
+    seek(a.start);
+    SelectedNoteId(a.id);
+    Marker(false);
+    EditingMarker(null);
+  }
+  function beginMarker() {
+    prepareMarkerAt(publicDrive ? now : (player.current?.currentTime ?? now));
   }
   function editMarker(marker: any) {
+    SelectedNoteId(null);
     EditingMarker(marker.id);
     I(marker.start);
     O(marker.end ?? null);
@@ -273,15 +308,32 @@ export default function VideoReview({ initial }: any) {
     B(true);
     E("");
     try {
-      const added = await addDriveVideoVersion(id, driveLink);
+      const seconds = parseReviewRuntime(driveRuntime);
+      if (!seconds) throw Error("Enter the total video length, e.g. 07:32.");
+      const added = await addDriveVideoVersion(id, driveLink, seconds);
       V(added.id);
       DriveLink("");
+      DriveRuntime("");
       DriveOpen(false);
     } catch (error: any) {
       E(error.message);
     } finally {
       B(false);
     }
+  }
+  async function saveDriveRuntime(e: any) {
+    e.preventDefault();
+    const seconds = parseReviewRuntime(runtimeDraft);
+    if (!seconds || !current) { E("Enter a valid run length, e.g. 07:32."); return; }
+    B(true);
+    try {
+      const latest = getState().records.find((record: any) => record.id === id);
+      if (!latest?.versions?.some((v: any) => v.id === current.id)) throw Error("Version not found");
+      saveRecord({...latest, versions: latest.versions.map((v: any) => v.id === current.id ? {...v, durationSeconds: seconds} : v)});
+      RuntimeDraft("");
+      E("");
+    } catch (e: any) { E(e.message); }
+    finally { B(false); }
   }
   async function upload(file?: File) {
     if (!file) return;
@@ -339,6 +391,7 @@ export default function VideoReview({ initial }: any) {
       if (editingMarkerId) updateAnnotation(editingMarkerId, changes);
       else addAnnotation(id, current.id, changes);
       cancelMarkerEdit();
+      SelectedNoteId(null);
     } catch (e: any) {
       E(e.message);
     }
@@ -346,6 +399,17 @@ export default function VideoReview({ initial }: any) {
   function annotationStatus(a: any, status: string) {
     setAnnotationStatus(a.id, status);
   }
+  useEffect(() => {
+    const onArrow = (e: KeyboardEvent) => {
+      if (!timelineDuration || !current || !["ArrowLeft","ArrowRight"].includes(e.key)) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input,textarea,select,[contenteditable=true],[role=dialog]")) return;
+      e.preventDefault();
+      seek((player.current?.currentTime ?? now) + (e.key === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? 10 : 5));
+    };
+    window.addEventListener("keydown", onArrow);
+    return () => window.removeEventListener("keydown", onArrow);
+  }, [id, current?.id, now, duration, timelineDuration, publicDrive]);
   const conversations = s.conversations.filter((c: any) =>
     c.members.includes(user().id),
   );
@@ -439,6 +503,10 @@ export default function VideoReview({ initial }: any) {
                       onChange={(e) => DriveLink(e.target.value)}
                     />
                   </label>
+                  <label>Video runtime (MM:SS)
+                    <input type="text" inputMode="numeric" placeholder="07:32" required
+                      value={driveRuntime} onChange={(e) => DriveRuntime(e.target.value)} />
+                  </label>
                   <p>
                     Set the video in Google Drive to "Anyone with the link"
                     and "Viewer". The video stays in Drive and plays below.
@@ -449,27 +517,6 @@ export default function VideoReview({ initial }: any) {
                     {busy ? "Saving…" : "Save & review"}
                   </button>
                 </form>
-              )}
-              {current && (
-                <div className="ops-toolbar review-marker-toolbar" role="group" aria-label="Review marker controls">
-                  <strong>Review markers ({annotations.length})</strong>
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled={!publicDrive && !ready}
-                    onClick={beginMarker}
-                  >
-                    ＋ Add marker
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById("video-review-markers")?.scrollIntoView({
-                      behavior: "smooth", block: "start",
-                    })}
-                  >
-                    View / edit markers
-                  </button>
-                </div>
               )}
               {publicDrive ? (
                 publicDriveURL ? (
@@ -495,10 +542,8 @@ export default function VideoReview({ initial }: any) {
                     {playerControls()}
                     </div>
                     <p className="review-drive-hint">
-                      Play using the Google Drive controls. To leave a timed
-                      review, enter the player's timestamp under Timing &amp;
-                      extra details in seconds (90 means 01:30). Google does
-                      not expose playback time or seeking to WAM.
+                      Google Drive controls playback inside the video. WAM's review timeline
+                      selects timestamps independently because Google does not share its playhead.
                     </p>
                   </>
                 ) : (
@@ -521,8 +566,10 @@ export default function VideoReview({ initial }: any) {
                   preload="metadata"
                   className="review-player"
                   src={url}
-                  controls
                   playsInline
+                  onPlay={() => Playing(true)}
+                  onPause={() => Playing(false)}
+                  onEnded={() => Playing(false)}
                   onTimeUpdate={(e) => N(e.currentTarget.currentTime)}
                   onSeeked={(e) => N(e.currentTarget.currentTime)}
                   onError={async (e) => {
@@ -586,121 +633,74 @@ export default function VideoReview({ initial }: any) {
                   </p>
                 </div>
               )}
-              {!publicDrive && (
-              <div className="review-player-controls">
-                <output aria-label="Playback time">
-                  {timecode(now)} / {timecode(duration)}
-                </output>
-                <div className="review-speed">
-                  <label htmlFor="review-speed">
-                    Speed <b>{playbackRates[speed]}×</b>
+              {publicDrive && current && !timelineDuration && (
+                <form className="review-runtime-form" onSubmit={saveDriveRuntime}>
+                  <label>Video runtime (MM:SS)
+                    <input type="text" inputMode="numeric" required placeholder="07:32"
+                      value={runtimeDraft} onChange={(e) => RuntimeDraft(e.target.value)} />
                   </label>
-                  <input
-                    id="review-speed"
-                    aria-label="Playback speed"
-                    aria-valuetext={playbackRates[speed] + " times"}
-                    type="range"
-                    min="0"
-                    max="4"
-                    step="1"
-                    value={speed}
-                    disabled={!ready}
-                    onChange={(e) => {
-                      const index = +e.target.value;
-                      Speed(index);
-                      if (player.current)
-                        player.current.playbackRate = playbackRates[index];
-                    }}
-                  />
-                  <div className="speed-markers" aria-hidden="true">
-                    {playbackRates.map((rate, i) => (
-                      <span
-                        className={i === speed ? "selected" : ""}
-                        key={rate}
-                      >
-                        {rate}×
-                      </span>
+                  <button type="submit" disabled={busy}>Save runtime</button>
+                </form>
+              )}
+              {current && timelineDuration > 0 && (
+                <div className="review-simple-timeline" aria-label="Video review timeline">
+                  <div className="review-time-labels">
+                    <strong>{shortTime(now)} / {shortTime(timelineDuration)}</strong>
+                    <span>{annotations.length} {annotations.length === 1 ? "note" : "notes"}</span>
+                  </div>
+                  <div className="review-timeline-track">
+                    <input type="range" min="0" max={timelineDuration} step="0.1"
+                      aria-label="Choose a time to leave a note"
+                      value={Math.min(now, timelineDuration)}
+                      onChange={(e) => seek(Number(e.target.value))}
+                      onPointerUp={(e) => prepareMarkerAt(Number(e.currentTarget.value))}
+                      onKeyUp={(e) => { if (e.key === "Enter") prepareMarkerAt(Number(e.currentTarget.value)); }}
+                    />
+                    {annotations.map((a: any) => (
+                      <button key={a.id} type="button"
+                        className={"review-timeline-note" + (selectedNoteId === a.id ? " active" : "")}
+                        style={{left: Math.max(1, Math.min(99, a.start / timelineDuration * 100)) + "%"}}
+                        title={shortTime(a.start) + ": " + a.text}
+                        aria-label={"Read note at " + shortTime(a.start)}
+                        onClick={() => openMarker(a)}>●</button>
                     ))}
                   </div>
+                  <div className="review-timeline-ticks" aria-hidden="true">
+                    <span>00:00</span><span>{shortTime(timelineDuration / 2)}</span><span>{shortTime(timelineDuration)}</span>
+                  </div>
+                  <div className="review-transport">
+                    {!publicDrive ? (
+                      <>
+                        <button type="button" aria-label="Stop video" onClick={stopPlayback} disabled={!ready}>■ Stop</button>
+                        <button type="button" aria-label="Rewind ten seconds" onClick={() => skipBy(-10)} disabled={!ready}>↶ 10s</button>
+                        <button type="button" aria-label={playing ? "Pause video" : "Play video"} onClick={togglePlayback} disabled={!ready}>
+                          {playing ? "Ⅱ Pause" : "▶ Play"}
+                        </button>
+                        <button type="button" aria-label="Skip forward ten seconds" onClick={() => skipBy(10)} disabled={!ready}>10s ↷</button>
+                      </>
+                    ) : (
+                      <small>Play and pause using Google’s controls above.</small>
+                    )}
+                    <button type="button" className="review-new-note"
+                      onClick={beginMarker} disabled={!publicDrive && !ready}>＋ Note</button>
+                  </div>
+                  {selectedNote && (
+                    <div className="review-selected-note" role="region" aria-label="Selected video note">
+                      <strong>{shortTime(selectedNote.start)} · {selectedNote.author}</strong>
+                      <p>{selectedNote.text}</p>
+                      {canManageAnnotation(selectedNote) && (
+                        <div className="review-note-actions">
+                          <button type="button" onClick={() => editMarker(selectedNote)}>Edit</button>
+                          <button type="button" onClick={() => deleteMarker(selectedNote)}>Delete</button>
+                        </div>
+                      )}
+                      <button type="button" onClick={() => SelectedNoteId(null)}>Close</button>
+                    </div>
+                  )}
+                  <small className="review-keyboard-hint">← / →: 5s · Shift + arrow: 10s</small>
                 </div>
-              </div>
-              )}
-              {publicDrive ? (
-                <div className="review-mark-actions">
-                  <button onClick={beginMarker}>
-                    ＋ Add timed marker
-                  </button>
-                </div>
-              ) : (
-              <div className="review-mark-actions">
-                <button
-                  disabled={!ready}
-                  onClick={beginMarker}
-                >
-                  ＋ Add marker
-                </button>
-                <button
-                  disabled={!ready}
-                  onClick={() => {
-                    I(player.current?.currentTime ?? now);
-                    ManualTiming(true);
-                    Marker(true);
-                  }}
-                >
-                  Set IN
-                </button>
-                <button
-                  disabled={!ready}
-                  onClick={() => {
-                    O(player.current?.currentTime ?? now);
-                    ManualTiming(true);
-                    Marker(true);
-                  }}
-                >
-                  Set OUT
-                </button>
-              </div>
               )}
               {draftMarker && (
-                <div className="review-range-readout">
-                  IN {timecode(start)}
-                  {end !== null ? " · OUT " + timecode(end) : ""}
-                </div>
-              )}
-              {!publicDrive && (
-              <div className="review-timeline" aria-label="Annotation timeline">
-                {draftMarker && (
-                  <span
-                    className="draft-review-marker"
-                    style={{
-                      left:
-                        Math.min(98, duration ? (start / duration) * 100 : 0) +
-                        "%",
-                    }}
-                    title={"Current marker: " + timecode(start)}
-                  >
-                    ●
-                  </span>
-                )}
-                {annotations.map((a: any) => (
-                  <button
-                    key={a.id}
-                    style={{
-                      left:
-                        Math.min(
-                          96,
-                          duration ? (a.start / duration) * 100 : 0,
-                        ) + "%",
-                    }}
-                    onClick={() => seek(a.start)}
-                    title={`${timecode(a.start)} ${a.type}`}
-                    aria-label={"Seek to " + timecode(a.start)}
-                  >
-                    ●
-                  </button>
-                ))}
-              </div>
-              )}
               <form
                 id="video-review-note"
                 className="annotation-form"
@@ -721,7 +721,7 @@ export default function VideoReview({ initial }: any) {
                     placeholder="Write a note about this part of the video…"
                   />
                 </label>
-                <details className="review-options" open={publicDrive}>
+                <details className="review-options">
                   <summary>Timing & extra details</summary>
                   <label className="review-range-toggle">
                     <input
@@ -800,20 +800,23 @@ export default function VideoReview({ initial }: any) {
                   </label>
                 </details>
               </form>
+              )}
               {error && (
                 <p className="notice" role="alert">
                   {error}
                 </p>
               )}
               <div className="ops-actions review-submit-actions">
+                {draftMarker && (
                 <button
                   type="submit"
                   form="video-review-note"
                   className="primary"
                   disabled={!current || (!ready && !publicDrive) || !text.trim() || busy}
                 >
-                  {editingMarkerId ? "Save changes" : "Save marker"}
+                  {editingMarkerId ? "Save changes" : "Save note"}
                 </button>
+                )}
                 {editingMarkerId && (
                   <button type="button" onClick={cancelMarkerEdit}>
                     Cancel edit
@@ -926,7 +929,7 @@ export default function VideoReview({ initial }: any) {
                     <button
                       className="timecode"
                       disabled={!ready && !publicDrive}
-                      onClick={() => publicDrive ? editMarker(a) : seek(a.start)}
+                      onClick={() => openMarker(a)}
                     >
                       {timecode(a.start)}
                       {a.end !== null ? "–" + timecode(a.end) : ""}
@@ -978,7 +981,7 @@ export default function VideoReview({ initial }: any) {
                     <AnnotationThread annotation={a} />
                   </article>
                 ))}
-              {!annotations.length && <p>No markers for this version yet. Use “Add marker” above the video.</p>}
+              {!annotations.length && <p>No notes yet. Tap the timeline to add one.</p>}
             </section>
           </div>
         </>
