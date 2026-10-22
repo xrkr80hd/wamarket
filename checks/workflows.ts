@@ -4,7 +4,7 @@ import{directChat,sendChatMedia}from '../lib/chat-media';
 import{dayPlan,createDayTask,completeDayTask}from '../lib/day-planner';
 import 'fake-indexeddb/auto';import assert from'node:assert/strict';import{renderToString}from'react-dom/server';import React from'react';
 import{getState,mutate,setUser,user,saveRecord,addAsset,readFile,fileURL,conversation,locations}from'../lib/preview-store';import{addDriveVideoVersion,addVideoVersion,addAnnotation,updateAnnotation,archiveAnnotation,setAnnotationStatus,reviewVersion,sendLocalMessage}from'../lib/review-actions';import{bulkItems,updateItem}from'../lib/item-actions';import{apiFetch}from'../lib/api-response';import{quoteForDay}from'../lib/daily-quotes';import{appearance,contrast}from'../lib/appearance';
-import{Operations,DailyQuote}from'../app/operations';import Library from'../app/library';import VideoReview from'../app/video-review';import ShotStudio from'../app/shot-studio';import{PlanningCalendar,TaskBoard,Reports}from'../app/planning';import PreviewAdmin,{RoleOverview}from'../app/preview-admin';import TeamMessenger from'../app/messenger-inbox';import ThemeStudio from'../app/theme-workbench';import ArchiveRoom from'../app/archive-room';import{themePresets}from'../lib/theme-presets';
+import{Operations,DailyQuote}from'../app/operations';import Library from'../app/library';import VideoReview,{parseReviewRuntime} from'../app/video-review';import ShotStudio from'../app/shot-studio';import{PlanningCalendar,TaskBoard,Reports}from'../app/planning';import PreviewAdmin,{RoleOverview}from'../app/preview-admin';import TeamMessenger from'../app/messenger-inbox';import ThemeStudio from'../app/theme-workbench';import ArchiveRoom from'../app/archive-room';import{themePresets}from'../lib/theme-presets';
 const storage=()=>{const m=new Map();return{getItem:(k:string)=>m.get(k)||null,setItem:(k:string,v:string)=>m.set(k,v),removeItem:(k:string)=>m.delete(k),clear:()=>m.clear()}};Object.assign(globalThis,{localStorage:storage(),sessionStorage:storage()});const events=new EventTarget();Object.assign(globalThis,{window:{location:{origin:'http://localhost'},dispatchEvent:events.dispatchEvent.bind(events),addEventListener:events.addEventListener.bind(events),removeEventListener:events.removeEventListener.bind(events)}});
 let count=0;async function check(name:string,fn:()=>any){await fn();console.log('PASS '+name);count++}
 await check('Official directory includes ten operations and no invented Nissan',()=>{assert.equal(locations.length,10);assert(!locations.some(([n])=>n.includes('Nissan')));assert.equal(getState().records.filter((r:any)=>r.locationRoot).length,10)});
@@ -54,6 +54,23 @@ await check('Linked Drive revisions preserve approvals, per-cut annotations and 
   await assert.rejects(addDriveVideoVersion(videoId,'https://drive.google.com/file/d/private_video_123/view'),/Restricted/);assert.equal(getState().records.find((r:any)=>r.id===videoId).versions.length,2);
   setUser('mckenzie');
  } finally {globalThis.fetch=realFetch;sessionStorage.removeItem('wam-cloud-auth')}
+});
+await check('Review runtime parsing and simple timestamp UI',()=>{
+ assert.equal(parseReviewRuntime('07:32'),452);
+ assert.equal(parseReviewRuntime('1:03:45'),3825);
+ for(const bad of ['', '7', '1:99', 'hello', '00:00'])assert.equal(parseReviewRuntime(bad),0);
+ const video = getState().records.find((r:any)=>r.id==='demo-video');
+ const prior=video.versions.length;
+ saveRecord({...video,versions:[...video.versions,{id:'runtime-check',name:'Drive runtime',status:'Video Draft',
+   source:{provider:'gdrive-public',fileId:'abcdefghijklmnopq'},durationSeconds:452,reviews:[]}]});
+ setUser('mckenzie');
+ const html=renderToString(React.createElement(VideoReview,{initial:'demo-video'}));
+ for(const label of ['Video review timeline','Choose a time to leave a note','07:32','Desktop video view','Mobile video view','review-viewer-controls','＋ Note'])
+   assert(html.includes(label),label);
+ assert(!html.includes('review-expand-button'));
+ const after=getState().records.find((r:any)=>r.id==='demo-video');
+ saveRecord({...after,versions:after.versions.filter((v:any)=>v.id!=='runtime-check')});
+ assert.equal(getState().records.find((r:any)=>r.id==='demo-video').versions.length,prior);
 });
 await check('Review marker edit/delete preserves existing video files and versions',async()=>{
   setUser('travis');
