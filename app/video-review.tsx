@@ -3,6 +3,9 @@ import {
   addVideoVersion,
   addDriveVideoVersion,
   addAnnotation,
+  updateAnnotation,
+  archiveAnnotation,
+  canManageAnnotation,
   setAnnotationStatus,
   reviewVersion,
 } from "../lib/review-actions";
@@ -41,6 +44,7 @@ export default function VideoReview({ initial }: any) {
     [ready, Ready] = useState(false),
     [speed, Speed] = useState(2),
     [draftMarker, Marker] = useState(false),
+    [editingMarkerId, EditingMarker] = useState<string | null>(null),
     [now, N] = useState(0),
     [duration, Dur] = useState(0),
     [manualTiming, ManualTiming] = useState(false),
@@ -81,6 +85,7 @@ export default function VideoReview({ initial }: any) {
     I(0);
     O(null);
     Marker(false);
+    EditingMarker(null);
     ManualTiming(current?.source?.provider === "gdrive-public");
     Text("");
     RF(null);
@@ -138,6 +143,53 @@ export default function VideoReview({ initial }: any) {
       );
       N(element.currentTime);
     }
+  }
+
+  function beginMarker() {
+    EditingMarker(null);
+    I(publicDrive ? 0 : (player.current?.currentTime ?? now));
+    O(null);
+    T("GENERAL NOTE");
+    P("Normal");
+    Text("");
+    RF(null);
+    ManualTiming(true);
+    Marker(true);
+    E("");
+    document.getElementById("video-review-note")?.scrollIntoView({
+      behavior: "smooth", block: "center",
+    });
+  }
+  function editMarker(marker: any) {
+    EditingMarker(marker.id);
+    I(marker.start);
+    O(marker.end ?? null);
+    T(marker.type);
+    P(marker.priority);
+    Text(marker.text);
+    RF(null);
+    ManualTiming(true);
+    Marker(true);
+    E("");
+    document.getElementById("video-review-note")?.scrollIntoView({
+      behavior: "smooth", block: "center",
+    });
+  }
+  function deleteMarker(marker: any) {
+    if (!window.confirm("Delete this review marker? The video and other reviews will remain.")) return;
+    try {
+      archiveAnnotation(marker.id);
+      if (editingMarkerId === marker.id) cancelMarkerEdit();
+    } catch (error: any) {
+      E(error.message);
+    }
+  }
+  function cancelMarkerEdit() {
+    EditingMarker(null);
+    Text("");
+    RF(null);
+    Marker(false);
+    O(null);
   }
   async function linkDrive(e: any) {
     e.preventDefault();
@@ -199,17 +251,17 @@ export default function VideoReview({ initial }: any) {
         throw Error("Choose a valid IN / OUT range within this video");
       const capturedTime = player.current?.currentTime ?? now;
       const reference = refFile ? await addAsset(refFile) : "";
-      addAnnotation(id, current.id, {
+      const changes = {
         start: publicDrive || manualTiming ? start : capturedTime,
         end: publicDrive || manualTiming ? end : null,
         type,
         text,
         priority,
-        reference,
-      });
-      Text("");
-      RF(null);
-      Marker(false);
+        ...(reference ? { reference } : {}),
+      };
+      if (editingMarkerId) updateAnnotation(editingMarkerId, changes);
+      else addAnnotation(id, current.id, changes);
+      cancelMarkerEdit();
     } catch (e: any) {
       E(e.message);
     }
@@ -320,6 +372,27 @@ export default function VideoReview({ initial }: any) {
                     {busy ? "Saving…" : "Save & review"}
                   </button>
                 </form>
+              )}
+              {current && (
+                <div className="ops-toolbar review-marker-toolbar" role="group" aria-label="Review marker controls">
+                  <strong>Review markers ({annotations.length})</strong>
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={!publicDrive && !ready}
+                    onClick={beginMarker}
+                  >
+                    ＋ Add marker
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById("video-review-markers")?.scrollIntoView({
+                      behavior: "smooth", block: "start",
+                    })}
+                  >
+                    View / edit markers
+                  </button>
+                </div>
               )}
               {publicDrive ? (
                 publicDriveURL ? (
@@ -459,22 +532,17 @@ export default function VideoReview({ initial }: any) {
               )}
               {publicDrive ? (
                 <div className="review-mark-actions">
-                  <button onClick={() => { ManualTiming(true); Marker(true); }}>
-                    Add timed marker
+                  <button onClick={beginMarker}>
+                    ＋ Add timed marker
                   </button>
                 </div>
               ) : (
               <div className="review-mark-actions">
                 <button
                   disabled={!ready}
-                  onClick={() => {
-                    I(player.current?.currentTime ?? now);
-                    O(null);
-                    ManualTiming(true);
-                    Marker(true);
-                  }}
+                  onClick={beginMarker}
                 >
-                  Add marker
+                  ＋ Add marker
                 </button>
                 <button
                   disabled={!ready}
@@ -544,7 +612,8 @@ export default function VideoReview({ initial }: any) {
                 onSubmit={annotate}
               >
                 <h3>
-                  Leave a review <small>Shared with the team</small>
+                  {editingMarkerId ? "Edit review marker" : "Add review marker"}{" "}
+                  <small>Shared with the team</small>
                 </h3>
                 <label>
                   What needs to change?{" "}
@@ -648,8 +717,13 @@ export default function VideoReview({ initial }: any) {
                   className="primary"
                   disabled={!current || (!ready && !publicDrive) || !text.trim() || busy}
                 >
-                  Save review
+                  {editingMarkerId ? "Save changes" : "Save marker"}
                 </button>
+                {editingMarkerId && (
+                  <button type="button" onClick={cancelMarkerEdit}>
+                    Cancel edit
+                  </button>
+                )}
                 <button
                   disabled={!current}
                   onClick={() => updateVersion("Submitted for Review")}
@@ -701,12 +775,11 @@ export default function VideoReview({ initial }: any) {
                 ))}
               </details>
             </section>
-            <details className="card panel review-notes">
-              <summary>
-                Review feedback ·{" "}
-                {annotations.filter((a: any) => a.status !== "Resolved").length}{" "}
-                open
-              </summary>
+            <section className="card panel review-notes" id="video-review-markers">
+              <h3>Saved markers ({annotations.length})</h3>
+              {publicDrive && (
+                <p>Drive playback runs in Google's player. Marker times are entered manually in seconds.</p>
+              )}
               <div className="sectionhead">
                 <h2>Review feedback</h2>
                 <span className="badge">
@@ -757,8 +830,8 @@ export default function VideoReview({ initial }: any) {
                   >
                     <button
                       className="timecode"
-                      disabled={!ready}
-                      onClick={() => seek(a.start)}
+                      disabled={!ready && !publicDrive}
+                      onClick={() => publicDrive ? editMarker(a) : seek(a.start)}
                     >
                       {timecode(a.start)}
                       {a.end !== null ? "–" + timecode(a.end) : ""}
@@ -797,13 +870,21 @@ export default function VideoReview({ initial }: any) {
                         ))}
                       </select>
                     </label>
-                    <button onClick={() => Share(a)}>Share to Messenger</button>
+                    <div className="ops-toolbar">
+                      {canManageAnnotation(a) && (
+                        <>
+                          <button type="button" onClick={() => editMarker(a)}>Edit marker</button>
+                          <button type="button" onClick={() => deleteMarker(a)}>Delete marker</button>
+                        </>
+                      )}
+                      <button type="button" onClick={() => Share(a)}>Share to Messenger</button>
+                    </div>
                     <TeamStatus record={a} annotation />
                     <AnnotationThread annotation={a} />
                   </article>
                 ))}
-              {!annotations.length && <p>No feedback for this version yet.</p>}
-            </details>
+              {!annotations.length && <p>No markers for this version yet. Use “Add marker” above the video.</p>}
+            </section>
           </div>
         </>
       ) : (
