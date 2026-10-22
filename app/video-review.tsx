@@ -45,6 +45,7 @@ export default function VideoReview({ initial }: any) {
     [speed, Speed] = useState(2),
     [draftMarker, Marker] = useState(false),
     [expandedPlayer, ExpandedPlayer] = useState(false),
+    [videoDisplayMode, VideoDisplayMode] = useState<"desktop" | "mobile">("desktop"),
     [editingMarkerId, EditingMarker] = useState<string | null>(null),
     [now, N] = useState(0),
     [duration, Dur] = useState(0),
@@ -168,17 +169,40 @@ export default function VideoReview({ initial }: any) {
       void document.exitFullscreen().catch(() => {});
     }
   }
-  function expandControl() {
+  function playerControls() {
     return (
-      <button
-        type="button"
-        className="review-expand-button"
-        aria-label={expandedPlayer ? "Close full screen video" : "Expand video to full screen"}
-        aria-pressed={expandedPlayer}
-        onClick={expandedPlayer ? closePlayer : expandPlayer}
-      >
-        <span aria-hidden="true">{expandedPlayer ? "✕ Close" : "⛶ Full screen"}</span>
-      </button>
+      <div className="review-viewer-controls" role="group" aria-label="Video viewing options">
+        <span className="review-viewer-controls-label">View:</span>
+        <div className="review-view-toggle" role="group" aria-label="Video preview format">
+          <button
+            type="button"
+            aria-label="Desktop video view"
+            aria-pressed={videoDisplayMode === "desktop"}
+            className={videoDisplayMode === "desktop" ? "selected" : ""}
+            onClick={() => VideoDisplayMode("desktop")}
+          >
+            Desktop
+          </button>
+          <button
+            type="button"
+            aria-label="Mobile video view"
+            aria-pressed={videoDisplayMode === "mobile"}
+            className={videoDisplayMode === "mobile" ? "selected" : ""}
+            onClick={() => VideoDisplayMode("mobile")}
+          >
+            Mobile
+          </button>
+        </div>
+        <button
+          type="button"
+          className="review-fullscreen-control"
+          aria-label={expandedPlayer ? "Exit full screen video" : "Expand video to full screen"}
+          aria-pressed={expandedPlayer}
+          onClick={expandedPlayer ? closePlayer : expandPlayer}
+        >
+          {expandedPlayer ? "Exit full screen" : "Full screen"}
+        </button>
+      </div>
     );
   }
   function seek(t: number) {
@@ -452,9 +476,10 @@ export default function VideoReview({ initial }: any) {
                   <>
                     <div
                       ref={playerStage}
-                      className={"review-player-stage" + (expandedPlayer ? " review-player-expanded" : "")}
+                      className={"review-viewer review-viewer-" + videoDisplayMode + (expandedPlayer ? " review-viewer-expanded" : "")}
                       aria-label="Google Drive video player"
                     >
+                    <div className="review-player-stage">
                     <iframe
                       key={current?.id}
                       title={video.title + " shared Google Drive video"}
@@ -466,7 +491,8 @@ export default function VideoReview({ initial }: any) {
                       referrerPolicy="no-referrer"
                       style={{ display: "block", border: 0 }}
                     />
-                    {expandControl()}
+                    </div>
+                    {playerControls()}
                     </div>
                     <p className="review-drive-hint">
                       Play using the Google Drive controls. To leave a timed
@@ -484,9 +510,10 @@ export default function VideoReview({ initial }: any) {
               ) : url ? (
                 <div
                   ref={playerStage}
-                  className={"review-player-stage" + (expandedPlayer ? " review-player-expanded" : "")}
+                  className={"review-viewer review-viewer-" + videoDisplayMode + (expandedPlayer ? " review-viewer-expanded" : "")}
                   aria-label="Uploaded video player"
                 >
+                <div className="review-player-stage">
                 <video
                   key={current?.id}
                   ref={player}
@@ -547,7 +574,8 @@ export default function VideoReview({ initial }: any) {
                     }
                   }}
                 />
-                {expandControl()}
+                </div>
+                {playerControls()}
                 </div>
               ) : (
                 <div className="review-empty">
