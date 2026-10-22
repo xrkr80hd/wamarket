@@ -75,6 +75,7 @@ export function addAnnotation(videoId: string, versionId: string, values: any) {
     versionId,
     assigned: "travis",
     author: user().name,
+    authorId: user().id,
     createdAt: new Date().toISOString(),
     status: "Open",
     comments: [],
@@ -98,6 +99,59 @@ export function addAnnotation(videoId: string, versionId: string, values: any) {
   }, "Added timestamped feedback");
   return a;
 }
+
+function findEditableMarker(state: any, id: string) {
+  const marker = state.annotations.find((a: any) => a.id === id);
+  if (!marker || marker.archived) throw Error("Marker not found");
+  if (!canManageAnnotation(marker))
+    throw Error("You do not have permission to change this marker");
+  return marker;
+}
+export function canManageAnnotation(marker: any) {
+  const me = user();
+  if (me.role === "viewer") return false;
+  return ["owner", "executive", "coordinator"].includes(me.role) ||
+    (marker.authorId ? marker.authorId === me.id : marker.author === me.name);
+}
+export function updateAnnotation(id: string, values: any) {
+  if (!values.text?.trim()) throw Error("Enter marker feedback");
+  if (!Number.isFinite(values.start) || values.start < 0 ||
+      (values.end != null && (!Number.isFinite(values.end) || values.end < values.start)))
+    throw Error("Invalid marker time range");
+  mutate((state) => {
+    const marker = findEditableMarker(state, id);
+    const changes = {
+      start: values.start, end: values.end ?? null,
+      text: values.text.trim(), type: values.type, priority: values.priority,
+      ...(values.reference ? { reference: values.reference } : {}),
+    };
+    Object.assign(marker, changes);
+    marker.history ||= [];
+    marker.history.push({ action: "Edited", by: user().name, at: new Date().toISOString() });
+    const video = state.records.find((r: any) => r.id === marker.videoId);
+    if (video) video.tasks = (video.tasks || []).map((task: any) =>
+      task.annotationId === id ? {
+        ...task,
+        title: `${marker.type} at ${marker.start}s — ${marker.text}`,
+        urgency: marker.priority,
+      } : task
+    );
+  }, "Edited video review marker");
+}
+export function archiveAnnotation(id: string) {
+  mutate((state) => {
+    const marker = findEditableMarker(state, id);
+    marker.archived = true;
+    marker.history ||= [];
+    marker.history.push({ action: "Deleted", by: user().name, at: new Date().toISOString() });
+    const video = state.records.find((r: any) => r.id === marker.videoId);
+    if (video) video.tasks = (video.tasks || []).filter((task: any) =>
+      task.annotationId !== id
+    );
+    // Archiving a marker never removes a video, version, source, or uploaded asset.
+  }, "Deleted video review marker");
+}
+
 export function setAnnotationStatus(id: string, status: string) {
   if (
     ![
