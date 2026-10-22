@@ -14,7 +14,8 @@ export default function PersonalWorkspace({ records }: any) {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
-    [revealed, setRevealed] = useState<Record<string, string>>({});
+    [revealed, setRevealed] = useState<Record<string, string>>({}),
+    [showDraftPassword, setShowDraftPassword] = useState(false);
   async function load() {
     try {
       const data = await apiJSON(await apiFetch("/api/personal-workspace"));
@@ -421,20 +422,18 @@ export default function PersonalWorkspace({ records }: any) {
                 </label>
                 <label>
                   Password
-                  <input
-                    type="password"
-                    maxLength={2000}
-                    autoComplete="new-password"
-                    placeholder={
-                      draft.hasPassword
-                        ? "Leave blank to keep saved password"
-                        : ""
-                    }
-                    value={draft.password}
-                    onChange={(e) =>
-                      setDraft({ ...draft, password: e.target.value })
-                    }
-                  />
+                  <div className="password-entry">
+                    <input
+                      type={showDraftPassword ? "text" : "password"}
+                      maxLength={2000}
+                      autoComplete="new-password"
+                      placeholder={draft.hasPassword ? "Leave blank to keep saved password" : ""}
+                      value={draft.password}
+                      onChange={(e) => setDraft({ ...draft, password: e.target.value })}
+                    />
+                    <button type="button" aria-label={showDraftPassword ? "Hide password" : "Show password"}
+                      onClick={() => setShowDraftPassword(!showDraftPassword)}>{showDraftPassword ? "Hide" : "Show"}</button>
+                  </div>
                 </label>
                 {draft.hasPassword && (
                   <label className="hub-checkbox">
