@@ -293,3 +293,119 @@
     padding: 8px 10px;
   }
 }
+
+/* Review player: taller landscape viewport gives Drive's embedded controls room.
+   Parent frame does not crop footage at the bottom. */
+.workspace-shell .review-viewer.review-viewer-desktop .review-player-stage {
+  aspect-ratio: 16 / 11;
+  height: auto;
+  min-height: 0;
+}
+.workspace-shell .review-viewer.review-viewer-mobile .review-player-stage {
+  aspect-ratio: 9 / 16;
+  height: auto;
+}
+.workspace-shell .review-simple-timeline {
+  margin: 12px 0;
+  padding: 14px 12px;
+  border: 1px solid var(--ui-borderColor);
+  border-radius: 10px;
+  background: var(--ui-cardBg);
+  min-width: 0;
+}
+.workspace-shell .review-time-labels,
+.workspace-shell .review-timeline-ticks {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.workspace-shell .review-time-labels { margin-bottom: 10px; font-size: 13px; }
+.workspace-shell .review-time-labels span { font-size: 11px; opacity: .7; }
+.workspace-shell .review-timeline-ticks { margin-top: 3px; font-size: 10px; opacity: .8; }
+.workspace-shell .review-timeline-track {
+  position: relative;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.workspace-shell .review-timeline-track > input[type=range] {
+  appearance: auto;
+  width: 100%;
+  height: 36px;
+  margin: 0;
+  padding: 0 !important;
+  cursor: pointer;
+  accent-color: var(--ui-primaryBg);
+  touch-action: pan-y;
+}
+.workspace-shell .review-timeline-note {
+  position: absolute;
+  z-index: 2;
+  top: -7px;
+  transform: translateX(-50%);
+  border: 0 !important;
+  border-radius: 50%;
+  width: 25px;
+  height: 25px;
+  min-width: 25px;
+  min-height: 25px;
+  padding: 0 !important;
+  background: var(--ui-primaryBg) !important;
+  color: var(--ui-primaryText) !important;
+  font-size: 16px;
+  box-shadow: 0 0 0 2px var(--ui-cardBg);
+}
+.workspace-shell .review-timeline-note.active { box-shadow: 0 0 0 3px var(--ui-highlight); }
+.workspace-shell .review-transport {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  padding: 13px 0 5px;
+}
+.workspace-shell .review-transport button {
+  min-height: 42px;
+  padding: 9px 12px;
+  font-size: 12px;
+}
+.workspace-shell .review-transport .review-new-note {
+  background: var(--ui-primaryBg);
+  color: var(--ui-primaryText);
+  border-color: var(--ui-primaryBg);
+}
+.workspace-shell .review-transport small { font-size: 11px; line-height: 1.5; }
+.workspace-shell .review-selected-note {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--ui-borderColor);
+  border-radius: 9px;
+  background: var(--ui-pageBg);
+  overflow-wrap: anywhere;
+}
+.workspace-shell .review-selected-note p { margin: 8px 0; }
+.workspace-shell .review-note-actions { display: inline-flex; gap: 6px; margin-right: 6px; }
+.workspace-shell .review-keyboard-hint { display: block; margin-top: 8px; text-align: center; opacity: .72; }
+.workspace-shell .review-runtime-form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin: 12px 0; }
+.workspace-shell .review-runtime-form label { flex: 1 1 180px; }
+.workspace-shell .review-runtime-form input { display: block; max-width: 190px; }
+.workspace-shell .review-viewer.review-viewer-expanded .review-player-stage,
+.workspace-shell .review-viewer:fullscreen .review-player-stage {
+  aspect-ratio: auto !important;
+}
+.workspace-shell .review-viewer.review-viewer-expanded .review-player-stage > .review-player,
+.workspace-shell .review-viewer:fullscreen .review-player-stage > .review-player {
+  width: min(100dvw, 145.4545dvh) !important;
+  height: min(calc(100dvh - 80px), 68.75dvw) !important;
+}
+@media (max-width: 600px) {
+ .workspace-shell .review-simple-timeline { padding: 12px 8px; }
+ .workspace-shell .review-transport { gap: 5px; }
+ .workspace-shell .review-transport button { font-size: 11px; min-height: 44px; padding: 8px 9px; }
+}
+/* A password may be verified while entering it; no change to password policy. */
+.password-entry { display: flex; align-items: stretch; gap: 8px; width: 100%; min-width: 0; }
+.password-entry > input { flex: 1 1 auto; min-width: 0; width: 100%; }
+.password-entry > button { flex: 0 0 auto; min-width: 58px; min-height: 40px; }
