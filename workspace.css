@@ -131,9 +131,20 @@
 .notification-panel h2{font-size:18px;margin:0}.notification-panel p{font-size:12px}.notification-controls{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:12px 0}.notification-controls button,.notification-device button{font-size:12px;min-height:32px;height:auto}.notification-items{display:grid;gap:6px}.notification-panel .notification-item{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:5px;width:100%;padding:12px;white-space:normal;overflow-wrap:anywhere;height:auto;border-radius:8px;background:transparent}.notification-panel .notification-item.unread{background:var(--ui-pageBg,#f5f5f3);border-left:3px solid var(--ui-primaryBg,#a74400)}.notification-item b{font-size:12px}.notification-item span{font-size:12px;font-weight:400}.notification-item time{font-size:10px;opacity:.7}.notification-device{display:grid;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid var(--ui-borderColor,#ddd)}.notification-device small{font-size:11px;line-height:1.5}
 
 
-/* The video surface is 16:9 on mobile, independent of iframe default sizing.
-   Never crop the actual media: Google embeds and uploaded videos share a container. */
-.workspace-shell .review-player-stage {
+/* Video review: viewer controls never overlay the footage.
+   Both portrait and landscape preview formats are available on every device. */
+.workspace-shell .review-viewer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0 0 12px;
+  background: var(--ui-cardBg);
+}
+.workspace-shell .review-viewer .review-player-stage {
   position: relative;
   display: block;
   width: 100%;
@@ -144,49 +155,80 @@
   border-radius: 10px;
   overflow: hidden;
 }
-.workspace-shell .review-player-stage > .review-player {
+.workspace-shell .review-viewer.review-viewer-mobile {
+  width: min(100%, 420px);
+  margin-left: auto;
+  margin-right: auto;
+}
+.workspace-shell .review-viewer.review-viewer-mobile .review-player-stage {
+  aspect-ratio: 9 / 16;
+}
+.workspace-shell .review-viewer .review-player-stage > .review-player {
   position: absolute;
   inset: 0;
   display: block;
   box-sizing: border-box;
   width: 100% !important;
   height: 100% !important;
-  min-width: 0;
+  min-width: 0 !important;
   max-width: none !important;
   max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
   border: 0 !important;
   border-radius: 0;
   background: #000;
   object-fit: contain;
 }
-.workspace-shell .review-player-stage > .review-expand-button {
-  position: absolute;
-  z-index: 3;
-  top: 10px;
-  right: 10px;
-  min-height: 40px;
-  min-width: 44px;
-  padding: 8px 12px;
-  border: 1px solid #fff6;
-  border-radius: 8px;
-  background: #111e !important;
-  color: #fff !important;
+.workspace-shell .review-viewer .review-viewer-controls {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 0;
+  background: var(--ui-cardBg);
+  color: var(--ui-bodyText);
+}
+.workspace-shell .review-viewer .review-viewer-controls-label {
   font-size: 12px;
   font-weight: 650;
-  cursor: pointer;
-  touch-action: manipulation;
 }
-.workspace-shell .review-player-stage.review-player-expanded,
-.workspace-shell .review-player-stage:fullscreen {
+.workspace-shell .review-viewer .review-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.workspace-shell .review-viewer .review-viewer-controls button {
+  position: static;
+  min-height: 40px;
+  padding: 8px 11px;
+  border: 1px solid var(--ui-borderColor);
+  border-radius: 7px;
+  background: var(--ui-buttonBg);
+  color: var(--ui-buttonText);
+  touch-action: manipulation;
+  white-space: nowrap;
+}
+.workspace-shell .review-viewer .review-viewer-controls button[aria-pressed="true"] {
+  border-color: var(--ui-primaryBg);
+  background: var(--ui-primaryBg) !important;
+  color: var(--ui-primaryText) !important;
+}
+.workspace-shell .review-viewer .review-fullscreen-control {
+  margin-left: auto;
+}
+.workspace-shell .review-viewer.review-viewer-expanded,
+.workspace-shell .review-viewer:fullscreen {
   position: fixed !important;
   inset: 0 !important;
   z-index: 100000 !important;
   display: flex !important;
-  align-items: center;
-  justify-content: center;
-  width: 100vw !important;
+  flex-direction: column;
   width: 100dvw !important;
-  height: 100vh !important;
   height: 100dvh !important;
   max-width: none !important;
   max-height: none !important;
@@ -194,26 +236,51 @@
   padding: 0 !important;
   border: 0 !important;
   border-radius: 0 !important;
-  aspect-ratio: auto !important;
-  overflow: hidden;
   background: #000;
 }
-.workspace-shell .review-player-stage.review-player-expanded > .review-player,
-.workspace-shell .review-player-stage:fullscreen > .review-player {
+.workspace-shell .review-viewer.review-viewer-expanded .review-player-stage,
+.workspace-shell .review-viewer:fullscreen .review-player-stage {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  width: 100% !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  border-radius: 0;
+  aspect-ratio: auto !important;
+}
+.workspace-shell .review-viewer.review-viewer-expanded .review-player-stage > .review-player,
+.workspace-shell .review-viewer:fullscreen .review-player-stage > .review-player {
   position: relative;
   inset: auto;
   flex: 0 0 auto;
   width: min(100dvw, 177.7778dvh) !important;
-  height: min(100dvh, 56.25dvw) !important;
+  height: min(calc(100dvh - 80px), 56.25dvw) !important;
   max-width: 100% !important;
   max-height: 100% !important;
   object-fit: contain;
 }
-.workspace-shell .review-player-stage.review-player-expanded > .review-expand-button,
-.workspace-shell .review-player-stage:fullscreen > .review-expand-button {
-  top: max(12px, env(safe-area-inset-top));
-  right: max(12px, env(safe-area-inset-right));
-  min-height: 44px;
+.workspace-shell .review-viewer.review-viewer-mobile.review-viewer-expanded .review-player-stage > .review-player,
+.workspace-shell .review-viewer.review-viewer-mobile:fullscreen .review-player-stage > .review-player {
+  width: min(100dvw, 56.25dvh) !important;
+  height: min(calc(100dvh - 80px), 177.7778dvw) !important;
+}
+.workspace-shell .review-viewer.review-viewer-expanded .review-viewer-controls,
+.workspace-shell .review-viewer:fullscreen .review-viewer-controls {
+  flex: 0 0 auto;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: #111;
+  color: #fff;
+}
+.workspace-shell .review-viewer.review-viewer-expanded .review-viewer-controls button,
+.workspace-shell .review-viewer:fullscreen .review-viewer-controls button {
+  border-color: #566270;
+  background: #263441;
+  color: #fff;
 }
 @media (max-width: 600px) {
   .workspace-shell .review-layout,
@@ -221,11 +288,7 @@
     min-width: 0;
     max-width: 100%;
   }
-  .workspace-shell .review-player-stage {
-    width: 100%;
-    max-width: 100%;
-  }
-  .workspace-shell .review-player-stage > .review-expand-button {
+  .workspace-shell .review-viewer .review-viewer-controls button {
     min-height: 44px;
     padding: 8px 10px;
   }
