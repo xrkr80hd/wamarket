@@ -1,7 +1,8 @@
-import { user } from "../lib/preview-store";
+import { user, people, saveRecord } from "../lib/preview-store";
+import { useWorkspace } from "./operations";
 ("use client");
 import { useEffect, useState } from "react";
-import { Plus, X, ExternalLink, Eye, EyeOff, Check } from "lucide-react";
+import { Plus, X, ExternalLink, Eye, EyeOff, Check, Share2 } from "lucide-react";
 import { apiFetch, apiJSON } from "../lib/api-response";
 import { shiftDate } from "../lib/planner";
 import { chicagoDate } from "../lib/daily-quotes";
@@ -15,7 +16,34 @@ export default function PersonalWorkspace({ records }: any) {
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [revealed, setRevealed] = useState<Record<string, string>>({}),
-    [showDraftPassword, setShowDraftPassword] = useState(false);
+    [showDraftPassword, setShowDraftPassword] = useState(false),
+    [sharing, setSharing] = useState<any>(null);
+  const ws = useWorkspace();
+  const me = user();
+  const shared = (ws.records || []).filter(
+    (r: any) =>
+      r.kind === "shared_link" &&
+      !r.archived &&
+      (r.to?.includes(me.id) || r.fromId === me.id),
+  );
+  function shareWith(entry: any, person: any) {
+    // Only the link and its notes travel. Account names and passwords never do.
+    saveRecord({
+      kind: "shared_link",
+      title: entry.title,
+      url: entry.url || "",
+      notes: entry.notes || "",
+      category: entry.category || "",
+      from: me.name,
+      fromId: me.id,
+      to: [person.id],
+      toName: person.name,
+      privateMembers: [me.id, person.id],
+      status: "Shared",
+    });
+    setSharing(null);
+    setMessage("Shared with " + person.name + ". It's in their My Workspace now.");
+  }
   async function load() {
     try {
       const data = await apiJSON(await apiFetch("/api/personal-workspace"));
@@ -302,6 +330,9 @@ export default function PersonalWorkspace({ records }: any) {
                   ? "Checked today"
                   : "Mark checked today"}
               </button>
+              <button onClick={() => setSharing(e)}>
+                <Share2 size={14} /> Share
+              </button>
               <button
                 onClick={() => {
                   setRevealed({});
@@ -325,6 +356,70 @@ export default function PersonalWorkspace({ records }: any) {
           </article>
         ))}
       </div>
+      {!!shared.length && (
+        <section className="hub-shared">
+          <h3>Shared links</h3>
+          <div className="hub-links hub-list">
+            {shared.map((r: any) => {
+              const mine = r.fromId === me.id;
+              return (
+                <article className="card hub-link hub-shared-link" key={r.id}>
+                  <div className="sectionhead">
+                    <h3>{r.title}</h3>
+                    <small>
+                      {mine ? "You shared with " + (r.toName || "a teammate") : "From " + r.from}
+                    </small>
+                  </div>
+                  {r.url && (
+                    <a className="hub-open" href={r.url} target="_blank" rel="noopener noreferrer">
+                      Open website <ExternalLink size={15} />
+                    </a>
+                  )}
+                  {r.notes && <p className="prewrap">{r.notes}</p>}
+                  <div className="hub-actions">
+                    <button
+                      onClick={() => {
+                        if (confirm(mine ? "Stop sharing this link?" : "Remove this shared link?"))
+                          saveRecord({ ...r, archived: true });
+                      }}
+                    >
+                      {mine ? "Unshare" : "Remove"}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+      {sharing && (
+        <div className="overlay" onClick={() => setSharing(null)}>
+          <section
+            className="modal hub-share-picker"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Share link"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <div className="modalhead">
+              <h2>Share “{sharing.title}”</h2>
+              <button type="button" aria-label="Close" onClick={() => setSharing(null)}>
+                <X size={16} />
+              </button>
+            </div>
+            <p className="calendar-help">
+              It shows up in their My Workspace. Account names and passwords are never shared.
+            </p>
+            {people
+              .filter((p: any) => p.id !== me.id)
+              .map((p: any) => (
+                <button key={p.id} type="button" onClick={() => shareWith(sharing, p)}>
+                  {p.name}
+                </button>
+              ))}
+          </section>
+        </div>
+      )}
       {!filtered.length && (
         <div className="card empty">
           <h3>Your links and reminders</h3>

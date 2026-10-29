@@ -109,3 +109,20 @@
   .lib-selbar small{display:none}
 }
 @media(max-width:800px){.lib-seg button:not(:last-child){display:none}.lib-seg button:last-child{border-left:0}}
+
+/* Copy-ready notes */
+.copy-notes{margin:0 0 16px}
+.copy-notes-head{display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap}
+.app .copy-notes-toggle{all:unset;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.copy-notes-toggle h2{margin:0;font-size:16px}
+.copy-notes-toggle small{opacity:.65;font-size:11px}
+.copy-notes-search{width:100%;margin:12px 0 0}
+.copy-notes-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:12px}
+.copy-note{display:flex;flex-direction:column;border:1px solid var(--ui-borderColor);border-radius:10px;padding:12px;min-width:0;background:var(--ui-pageBg)}
+.copy-note header{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.copy-note header small{opacity:.6;font-size:10px;white-space:nowrap}
+.copy-note pre{white-space:pre-wrap;word-break:break-word;font:inherit;font-size:12px;max-height:140px;overflow:auto;margin:8px 0;opacity:.85}
+.copy-note footer{display:flex;gap:6px;margin-top:auto}
+.copy-note footer .copy-note-copy{flex:1;justify-content:center;display:inline-flex;align-items:center;gap:6px}
+.copy-notes-empty{font-size:12px;opacity:.7;margin:4px 0}
+.copy-note-editor{width:min(560px,calc(100vw - 24px));display:flex;flex-direction:column;gap:10px}

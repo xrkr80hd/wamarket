@@ -69,7 +69,7 @@ export default function VideoReview({ initial }: any) {
     [speed, Speed] = useState(2),
     [draftMarker, Marker] = useState(false),
     [expandedPlayer, ExpandedPlayer] = useState(false),
-    [videoDisplayMode, VideoDisplayMode] = useState<"desktop" | "mobile">("desktop"),
+    [portrait, Portrait] = useState(false),
     [editingMarkerId, EditingMarker] = useState<string | null>(null),
     [now, N] = useState(0),
     [duration, Dur] = useState(0),
@@ -201,27 +201,6 @@ export default function VideoReview({ initial }: any) {
   function playerControls() {
     return (
       <div className="review-viewer-controls" role="group" aria-label="Video viewing options">
-        <span className="review-viewer-controls-label">View:</span>
-        <div className="review-view-toggle" role="group" aria-label="Video preview format">
-          <button
-            type="button"
-            aria-label="Desktop video view"
-            aria-pressed={videoDisplayMode === "desktop"}
-            className={videoDisplayMode === "desktop" ? "selected" : ""}
-            onClick={() => VideoDisplayMode("desktop")}
-          >
-            Desktop
-          </button>
-          <button
-            type="button"
-            aria-label="Mobile video view"
-            aria-pressed={videoDisplayMode === "mobile"}
-            className={videoDisplayMode === "mobile" ? "selected" : ""}
-            onClick={() => VideoDisplayMode("mobile")}
-          >
-            Mobile
-          </button>
-        </div>
         <button
           type="button"
           className="review-fullscreen-control"
@@ -611,31 +590,24 @@ export default function VideoReview({ initial }: any) {
                   <>
                     <div
                       ref={playerStage}
-                      className={"review-viewer review-viewer-" + videoDisplayMode + (expandedPlayer ? " review-viewer-expanded" : "")}
+                      className={"wam-player" + (expandedPlayer ? " is-expanded" : "")}
                       aria-label="Google Drive video player"
                     >
-                    <div className="review-player-stage">
+                    <div className="wam-player-frame">
                     <iframe
                       key={current?.id}
                       title={video.title + " shared Google Drive video"}
-                      className="review-player"
+                      className="wam-player-media"
                       src={publicDriveURL}
                       loading="lazy"
                       allow="autoplay; fullscreen; picture-in-picture"
                       allowFullScreen
                       referrerPolicy="no-referrer"
-                      style={{ display: "block", border: 0 }}
                     />
                     </div>
-                    <a className="review-drive-link-preview" href={publicDriveURL}
-                       target="_blank" rel="noopener noreferrer"
-                       aria-label="Open linked video on Google Drive">
-                      <span className="review-drive-link-icon" aria-hidden="true">↗</span>
-                      <span className="review-drive-link-copy">
-                        <strong>Google Drive video</strong>
-                        <small>drive.google.com</small>
-                      </span>
-                      <span className="review-drive-link-status">Linked</span>
+                    <a className="wam-player-drive-link" href={publicDriveURL}
+                       target="_blank" rel="noopener noreferrer">
+                      Open in Google Drive ↗
                     </a>
                     {reviewTimeline()}
                     {playerControls()}
@@ -650,16 +622,16 @@ export default function VideoReview({ initial }: any) {
               ) : url ? (
                 <div
                   ref={playerStage}
-                  className={"review-viewer review-viewer-" + videoDisplayMode + (expandedPlayer ? " review-viewer-expanded" : "")}
+                  className={"wam-player" + (portrait ? " is-portrait" : "") + (expandedPlayer ? " is-expanded" : "")}
                   aria-label="Uploaded video player"
                 >
-                <div className="review-player-stage">
+                <div className="wam-player-frame">
                 <video
                   key={current?.id}
                   ref={player}
                   data-version={current?.id}
                   preload="metadata"
-                  className="review-player"
+                  className="wam-player-media"
                   src={url}
                   playsInline
                   onPlay={() => Playing(true)}
@@ -692,6 +664,7 @@ export default function VideoReview({ initial }: any) {
                   onLoadedMetadata={(e) => {
                     Ready(true);
                     E("");
+                    Portrait(e.currentTarget.videoHeight > e.currentTarget.videoWidth);
                     Dur(e.currentTarget.duration);
                     e.currentTarget.playbackRate = playbackRates[speed];
                     try {

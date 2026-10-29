@@ -16,8 +16,11 @@ export function PlanningCalendar({ onOpen }: any = {}) {
     [loc, L] = useState(""),
     [who, W] = useState(""),
     [edit, E] = useState<any>(null),
-    [preview, P] = useState("");
-  let entries = s.records.filter(
+    [preview, P] = useState(""),
+    [showBusiness, ShowBusiness] = useState(true),
+    [showMine, ShowMine] = useState(true),
+    [mine, Mine] = useState<any>(null);
+  const business = s.records.filter(
     (r: any) =>
       ["event", "project", "video", "content", "todo"].includes(r.kind) &&
       !r.archived &&
@@ -25,6 +28,32 @@ export function PlanningCalendar({ onOpen }: any = {}) {
       (!loc || r.dealership === loc || r.dealerships?.includes(loc)) &&
       (!who || r.owner === who),
   );
+  // Personal schedule: lives in each person's private store, never shared.
+  const personal = ((s.personal || {})[user().id] || [])
+    .filter((e: any) => e.entryType === "event" && e.date)
+    .map((e: any) => ({ ...e, kind: "personal", personal: true }));
+  let entries = [
+    ...(showBusiness ? business : []),
+    ...(showMine ? personal : []),
+  ];
+  function savePersonal(ev: any) {
+    mutate((st: any) => {
+      const list = ((st.personal ||= {})[user().id] ||= []);
+      const i = list.findIndex((x: any) => x.id === ev.id);
+      const clean = { ...ev, entryType: "event" };
+      delete clean.kind;
+      delete clean.personal;
+      if (i >= 0) list[i] = clean;
+      else list.push({ ...clean, id: crypto.randomUUID() });
+    });
+  }
+  function removePersonal(id: string) {
+    mutate((st: any) => {
+      st.personal[user().id] = (st.personal[user().id] || []).filter(
+        (x: any) => x.id !== id,
+      );
+    });
+  }
   const dt = new Date(date + "T12:00:00"),
     start = new Date(dt.getFullYear(), dt.getMonth(), 1),
     end = new Date(dt.getFullYear(), dt.getMonth() + 1, 0);
@@ -81,6 +110,8 @@ export function PlanningCalendar({ onOpen }: any = {}) {
     D(str(d));
   }
   function reschedule(id: string, target: string) {
+    const p = personal.find((x: any) => x.id === id);
+    if (p) return savePersonal({ ...p, date: target });
     const r = s.records.find((r: any) => r.id === id);
     if (!r) return;
     let endDate = r.endDate;
@@ -105,7 +136,13 @@ export function PlanningCalendar({ onOpen }: any = {}) {
             })
           }
         >
-          ＋ Calendar entry
+          ＋ Business entry
+        </button>
+        <button
+          className="calendar-mine-button"
+          onClick={() => Mine({ title: "", date, time: "", notes: "" })}
+        >
+          ＋ My event
         </button>
         <select
           aria-label="Calendar view"
@@ -140,6 +177,24 @@ export function PlanningCalendar({ onOpen }: any = {}) {
           ))}
         </select>
       </div>
+      <div className="calendar-layers" role="group" aria-label="Calendar layers">
+        <label className="layer-business">
+          <input
+            type="checkbox"
+            checked={showBusiness}
+            onChange={(e) => ShowBusiness(e.target.checked)}
+          />
+          <i aria-hidden="true" /> Business
+        </label>
+        <label className="layer-personal">
+          <input
+            type="checkbox"
+            checked={showMine}
+            onChange={(e) => ShowMine(e.target.checked)}
+          />
+          <i aria-hidden="true" /> My schedule <small>(only you see this)</small>
+        </label>
+      </div>
       <h2 className="calendar-period-title">
         {dt.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
       </h2>
@@ -154,7 +209,7 @@ export function PlanningCalendar({ onOpen }: any = {}) {
             .filter((r: any) => r.date >= str(start) && r.date <= str(end))
             .map((r: any) => (
               <button
-                className="agenda-item"
+                className={"agenda-item" + (r.personal ? " is-personal" : "")}
                 key={r.id}
                 onClick={() => P(r.date)}
               >
@@ -226,7 +281,7 @@ export function PlanningCalendar({ onOpen }: any = {}) {
                   .slice(0, 2)
                   .map((r: any) => (
                     <button
-                      className="calendar-event"
+                      className={"calendar-event" + (r.personal ? " is-personal" : "")}
                       title={r.title}
                       key={r.id}
                       draggable
@@ -235,7 +290,7 @@ export function PlanningCalendar({ onOpen }: any = {}) {
                       }
                       onClick={() => P(str(d))}
                     >
-                      <small>{r.kind}</small>
+                      <small>{r.personal ? (r.time || "Mine") : r.kind}</small>
                       {r.title}
                     </button>
                   ))}
@@ -273,9 +328,11 @@ export function PlanningCalendar({ onOpen }: any = {}) {
               </button>
             </div>
             {forDay(preview).map((r: any) => (
-              <article key={r.id}>
+              <article key={r.id} className={r.personal ? "is-personal" : ""}>
                 <small>
-                  {r.kind === "project"
+                  {r.personal
+                    ? "My schedule" + (r.time ? " · " + r.time : "")
+                    : r.kind === "project"
                     ? "Campaign"
                     : r.kind === "todo"
                       ? "Task"
@@ -284,7 +341,7 @@ export function PlanningCalendar({ onOpen }: any = {}) {
                         : r.kind === "video"
                           ? "Video"
                           : "Event"}{" "}
-                  · {r.status}
+                  {!r.personal && " · " + r.status}
                 </small>
                 <h3>{r.title}</h3>
                 <p>
@@ -296,15 +353,32 @@ export function PlanningCalendar({ onOpen }: any = {}) {
                   ).slice(0, 240)}
                 </p>
                 {r.owner && <small>{r.owner}</small>}
-                <button
-                  type="button"
-                  onClick={() => {
-                    P("");
-                    onOpen ? onOpen(r) : E(r);
-                  }}
-                >
-                  Show more →
-                </button>
+                {r.personal ? (
+                  <div className="ops-actions">
+                    <button type="button" onClick={() => { P(""); Mine(r); }}>
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm("Delete this event from your schedule?"))
+                          removePersonal(r.id);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      P("");
+                      onOpen ? onOpen(r) : E(r);
+                    }}
+                  >
+                    Show more →
+                  </button>
+                )}
               </article>
             ))}
             <button
@@ -327,6 +401,71 @@ export function PlanningCalendar({ onOpen }: any = {}) {
         </div>
       )}
       {edit && <RecordEditor record={edit} onClose={() => E(null)} />}
+      {mine && (
+        <div className="overlay" onClick={() => Mine(null)}>
+          <form
+            className="modal personal-event-editor"
+            role="dialog"
+            aria-modal="true"
+            aria-label="My event"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!mine.title.trim() || !mine.date) return;
+              savePersonal(mine);
+              Mine(null);
+            }}
+          >
+            <div className="modalhead">
+              <h2>{mine.id ? "Edit my event" : "New event on my schedule"}</h2>
+              <button type="button" aria-label="Close" onClick={() => Mine(null)}>
+                ×
+              </button>
+            </div>
+            <p className="calendar-help">Only you can see your schedule.</p>
+            <label>
+              What
+              <input
+                required
+                autoFocus
+                value={mine.title}
+                onChange={(e) => Mine({ ...mine, title: e.target.value })}
+                placeholder="Dentist, call vendor, day off…"
+              />
+            </label>
+            <div className="ops-formgrid">
+              <label>
+                Date
+                <input
+                  type="date"
+                  required
+                  value={mine.date}
+                  onChange={(e) => Mine({ ...mine, date: e.target.value })}
+                />
+              </label>
+              <label>
+                Time (optional)
+                <input
+                  type="time"
+                  value={mine.time || ""}
+                  onChange={(e) => Mine({ ...mine, time: e.target.value })}
+                />
+              </label>
+            </div>
+            <label>
+              Notes
+              <textarea
+                rows={3}
+                value={mine.notes || ""}
+                onChange={(e) => Mine({ ...mine, notes: e.target.value })}
+              />
+            </label>
+            <button className="primary" type="submit">
+              Save to my schedule
+            </button>
+          </form>
+        </div>
+      )}
     </>
   );
 }

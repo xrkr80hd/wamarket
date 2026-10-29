@@ -49,7 +49,7 @@ await check('Linked Drive revisions preserve approvals, per-cut annotations and 
   assert(getState().annotations.some((a:any)=>a.versionId===first.id&&a.start===4.125));assert(!getState().annotations.some((a:any)=>a.versionId===second.id));
   assert.equal(calls,2);assert.equal(first.source.provider,'gdrive-link');
   setUser('lawrence');const shared=sendLocalMessage('team',{text:'Review this cut',annotation:{videoId,versionId:first.id,time:4.125}});assert.equal(shared.annotation.versionId,first.id);
-  setUser('mckenzie');const html=renderToString(React.createElement(VideoReview,{initial:videoId}));assert(html.includes('Paste Google Drive Link'));assert(html.includes('Upload new version'));assert(html.includes('Expand video to full screen'));assert(html.includes('Desktop video view'));assert(html.includes('Mobile video view'));assert(html.includes('review-viewer-controls'));assert(!html.includes('review-expand-button'));
+  setUser('mckenzie');const html=renderToString(React.createElement(VideoReview,{initial:videoId}));assert(html.includes('Paste Google Drive Link'));assert(html.includes('Upload new version'));assert(html.includes('Expand video to full screen'));assert(!html.includes('Mobile video view'));assert(html.includes('review-viewer-controls'));assert(!html.includes('review-expand-button'));
   setUser('travis');globalThis.fetch=async()=>Response.json({error:'Restricted file'},{status:403});
   await assert.rejects(addDriveVideoVersion(videoId,'https://drive.google.com/file/d/private_video_123/view'),/Restricted/);assert.equal(getState().records.find((r:any)=>r.id===videoId).versions.length,2);
   setUser('mckenzie');
@@ -71,14 +71,14 @@ await check('Review runtime parsing and simple timestamp UI',()=>{
    source:{provider:'gdrive-public',fileId:'abcdefghijklmnopq'},durationSeconds:452,reviews:[]}]});
  setUser('mckenzie');
  const html=renderToString(React.createElement(VideoReview,{initial:'demo-video'}));
- for(const label of ['Video review timeline','Choose a time to leave a note','07:32','Desktop video view','Mobile video view','review-viewer-controls','＋ Note','How to enter video length'])
+ for(const label of ['Video review timeline','Choose a time to leave a note','07:32','review-viewer-controls','＋ Note','How to enter video length'])
    assert(html.includes(label),label);
  assert(!html.includes('review-expand-button'));
- assert(html.includes('review-drive-link-preview'));
- assert(html.includes('review-drive-link-status'));
+ assert(html.includes('wam-player-drive-link'));
+ assert(!html.includes('Desktop video view'));
  assert(html.includes('review-simple-timeline'));
  assert(html.includes('review-viewer-controls'));
- assert(html.indexOf('review-drive-link-preview') < html.indexOf('review-simple-timeline'));
+ assert(html.indexOf('wam-player-drive-link') < html.indexOf('review-simple-timeline'));
  assert(html.indexOf('review-simple-timeline') < html.indexOf('review-viewer-controls'));
  const after=getState().records.find((r:any)=>r.id==='demo-video');
  saveRecord({...after,versions:after.versions.filter((v:any)=>v.id!=='runtime-check')});

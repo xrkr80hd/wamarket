@@ -17,6 +17,7 @@ import {
   X,
   PenSquare,
   Users,
+  Download,
 } from "lucide-react";
 import { useWorkspace, FilePreview } from "./operations";
 import { ProfileAvatar } from "./local-accounts";
@@ -28,6 +29,7 @@ import {
   conversation,
   addAsset,
   fileURL,
+  downloadFile,
 } from "../lib/preview-store";
 import {
   ensureTeamChat,
@@ -513,24 +515,44 @@ export default function MessengerInbox({
                             const a = s.records.find((r: any) => r.id === id);
                             return (
                               <div className="chat-attachment" key={id}>
-                                {a && <FilePreview id={id} type={a.type} />}
-                                <Button
-                                  variant="ghost"
-                                  onClick={async () => {
-                                    try {
-                                      const u = await fileURL(id);
-                                      if (u) window.open(u, "_blank");
-                                      else E("Original file is unavailable");
-                                    } catch (e: any) {
-                                      E(e.message);
-                                    }
-                                  }}
-                                >
-                                  {a?.title || "Open attachment"}
-                                </Button>
-                                <small>
-                                  Saved in Asset Room · {label(current)}
-                                </small>
+                                {a && (
+                                  <button
+                                    type="button"
+                                    className="chat-attachment-preview"
+                                    aria-label={"Open " + (a.title || "attachment")}
+                                    onClick={async () => {
+                                      try {
+                                        const u = await fileURL(id);
+                                        if (u) window.open(u, "_blank", "noopener");
+                                        else E("This file isn’t available.");
+                                      } catch (e: any) {
+                                        E(e.message);
+                                      }
+                                    }}
+                                  >
+                                    <FilePreview id={id} type={a.type} controls={false} />
+                                  </button>
+                                )}
+                                <div className="chat-attachment-bar">
+                                  <span className="chat-attachment-name" title={a?.title}>
+                                    {a?.title || "Attachment"}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="chat-attachment-download"
+                                    aria-label={"Download " + (a?.title || "attachment")}
+                                    title="Download"
+                                    onClick={async () => {
+                                      try {
+                                        await downloadFile(id, a?.originalName || a?.title || "attachment");
+                                      } catch (e: any) {
+                                        E(e.message);
+                                      }
+                                    }}
+                                  >
+                                    <Download size={15} />
+                                  </button>
+                                </div>
                               </div>
                             );
                           })}
@@ -652,6 +674,9 @@ export default function MessengerInbox({
                   <div className="chat-pending-files">
                     {files.map((f, i) => (
                       <div key={"file" + i}>
+                        {f.type.startsWith("image/") && (
+                          <PendingThumb file={f} />
+                        )}
                         <span>{f.name}</span>
                         <Button
                           type="button"
@@ -685,11 +710,46 @@ export default function MessengerInbox({
                 <div className="compose-input-row">
                   <Textarea
                     aria-label="Message"
-                    placeholder="Message…"
+                    placeholder="Message… (paste images with Ctrl/⌘+V)"
                     rows={2}
                     maxLength={4000}
                     value={text}
                     onChange={(e) => T(e.target.value)}
+                    onPaste={(e) => {
+                      // Paste screenshots / copied images straight into chat.
+                      if (editing) return;
+                      const pasted = Array.from(e.clipboardData?.items || [])
+                        .filter((it) => it.kind === "file")
+                        .map((it) => it.getAsFile())
+                        .filter(Boolean) as File[];
+                      if (!pasted.length) return;
+                      e.preventDefault();
+                      const stamp = new Date()
+                        .toISOString()
+                        .slice(0, 19)
+                        .replace(/[:T]/g, "-");
+                      F([
+                        ...files,
+                        ...pasted.map((f, i) =>
+                          !f.name || f.name === "image.png"
+                            ? new File(
+                                [f],
+                                "Pasted image " + stamp + (i ? "-" + i : "") +
+                                  "." + ((f.type.split("/")[1] || "png").replace("jpeg", "jpg")),
+                                { type: f.type || "image/png" },
+                              )
+                            : f,
+                        ),
+                      ]);
+                    }}
+                    onDragOver={(e) => {
+                      if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      if (editing || !e.dataTransfer.files.length) return;
+                      e.preventDefault();
+                      F([...files, ...Array.from(e.dataTransfer.files)]);
+                    }}
                     onKeyDown={(e) => {
                       if (
                         e.key === "Enter" &&
@@ -852,4 +912,14 @@ function AssetPicker({ selected, onChange }: any) {
       </div>
     </>
   );
+}
+
+function PendingThumb({ file }: { file: File }) {
+  const [url, setUrl] = useState("");
+  useEffect(() => {
+    const u = URL.createObjectURL(file);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+  return url ? <img className="chat-pending-thumb" src={url} alt="" /> : null;
 }

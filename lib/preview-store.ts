@@ -315,6 +315,30 @@ export function saveRecord(record: any) {
     s.records = old
       ? s.records.map((x: any) => (x.id === id ? r : x))
       : [...s.records, r];
+    // Every new campaign gets its own asset folder in its store's library
+    // (multi-store campaigns go in the group library).
+    if (!old && r.kind === "project") {
+      const stores = (r.dealerships || []).filter(Boolean);
+      const dealership =
+        stores.length === 1
+          ? stores[0]
+          : stores.length > 1
+            ? "Walker Automotive Group"
+            : r.dealership || "Walker Automotive Group";
+      const folderId = "campaign-folder-" + id;
+      if (!s.records.some((x: any) => x.id === folderId))
+        s.records.push({
+          id: folderId,
+          kind: "folder",
+          title: r.title,
+          dealership,
+          folder: "",
+          campaign: id,
+          status: "Active",
+          createdById: user().id,
+          updated: new Date().toISOString(),
+        });
+    }
   }, "Saved " + record.title);
   return id;
 }
@@ -344,9 +368,13 @@ export async function putFile(id: string, file: Blob) {
 }
 export async function readFile(id: string): Promise<Blob | undefined> {
   const record = getState().records.find((r: any) => r.id === id);
-  if (record?.storage) {
-    const d = await cloudRequest("media-read", { id });
-    return (await fetch(d.url)).blob();
+  if (record?.storage || cloudSignedIn()) {
+    try {
+      const d = await cloudRequest("media-read", { id });
+      if (d?.url) return (await fetch(d.url)).blob();
+    } catch (e: any) {
+      if (e?.status !== 404) throw e;
+    }
   }
   if (
     record?.privateConversation &&
@@ -366,10 +394,21 @@ export async function readFile(id: string): Promise<Blob | undefined> {
   });
 }
 const urls = new Map<string, string>();
+const cloudSignedIn = () =>
+  typeof sessionStorage !== "undefined" &&
+  !!sessionStorage.getItem("wam-cloud-auth");
 export async function fileURL(id: string) {
   if (!id) return "";
-  if (getState().records.find((r: any) => r.id === id)?.storage)
-    return (await cloudRequest("media-read", { id })).url;
+  if (getState().records.find((r: any) => r.id === id)?.storage || cloudSignedIn()) {
+    // Ask the server even when this browser's copy of the record is stale:
+    // the shared record knows where the original lives.
+    try {
+      const d = await cloudRequest("media-read", { id });
+      if (d?.url) return d.url;
+    } catch (e: any) {
+      if (e?.status !== 404) throw e;
+    }
+  }
   const record = getState().records.find((r: any) => r.id === id);
   if (
     record?.privateConversation &&
@@ -402,6 +441,28 @@ export async function fileURL(id: string) {
   const u = URL.createObjectURL(b);
   urls.set(cacheKey, u);
   return u;
+}
+/** Save a file with its real name. Signed storage links live on another
+ * origin, where the browser ignores the download attribute, so fetch the
+ * bytes first and save them from a same-origin blob. */
+export async function downloadFile(id: string, name = "download") {
+  const url = await fileURL(id);
+  if (!url) throw Error("This file isn’t available to download.");
+  let href = url,
+    temporary = false;
+  if (!url.startsWith("blob:")) {
+    const r = await fetch(url);
+    if (!r.ok) throw Error("Download failed. Try again.");
+    href = URL.createObjectURL(await r.blob());
+    temporary = true;
+  }
+  const el = document.createElement("a");
+  el.href = href;
+  el.download = name;
+  document.body.appendChild(el);
+  el.click();
+  el.remove();
+  if (temporary) setTimeout(() => URL.revokeObjectURL(href), 30000);
 }
 export async function addAsset(file: File, meta: any = {}) {
   if (sessionStorage.getItem("wam-cloud-auth")) {

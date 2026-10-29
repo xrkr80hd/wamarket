@@ -7,6 +7,7 @@ import {
   saveRecord,
   addAsset,
   fileURL,
+  downloadFile,
   locations,
   mutate,
   user,
@@ -296,12 +297,7 @@ export default function Library({ initialFolder = "" }: any) {
   }
   async function download(a: any) {
     try {
-      const url = await fileURL(a.id);
-      if (!url) return setError("This file isn’t available to download here.");
-      const el = document.createElement("a");
-      el.href = url;
-      el.download = a.originalName || a.title;
-      el.click();
+      await downloadFile(a.id, a.originalName || a.title);
     } catch (e: any) {
       setError(e.message);
     }

@@ -15,8 +15,13 @@ export async function cloudRequest(route: string, body?: any) {
     headers: { "Content-Type": "application/json", "X-Wam-User": activeId },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
-  const d = await r.json();
-  if (!r.ok) throw Error(d.error || "Unable to sync workspace");
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const e: any = Error(d.error || "Unable to sync workspace");
+    e.status = r.status;
+    e.data = d;
+    throw e;
+  }
   return d;
 }
 const allRecords = (s: any) => [
@@ -71,6 +76,7 @@ async function sync() {
   if (running || stopped) return;
   running = true;
   const identity = activeId;
+  const conflicts: string[] = [];
   try {
     do {
       pending = false;
@@ -78,11 +84,22 @@ async function sync() {
       for (const r of allRecords(s)) {
         if (stopped || identity !== activeId) return;
         if (baseline.get(r.id) !== JSON.stringify(r)) {
-          const d = await cloudRequest("record", {
-            record: r,
-            version: versions.get(r.id),
-          });
-          versions.set(r.id, d.record.version);
+          // One bad record must never block the rest of the queue.
+          try {
+            const d = await cloudRequest("record", {
+              record: r,
+              version: versions.get(r.id),
+            });
+            versions.set(r.id, d.record.version);
+          } catch (e: any) {
+            // 409: a teammate saved first. Keep the shared copy (it is
+            // reloaded below) instead of retrying the stale edit forever.
+            if (e.status === 409 && e.data?.record) {
+              versions.set(r.id, e.data.record.version);
+              conflicts.push(r.title || "an item");
+            } else if (![400, 403, 413, 422].includes(e.status)) throw e;
+            else conflicts.push(r.title || "an item");
+          }
           baseline.set(r.id, JSON.stringify(r));
         }
       }
@@ -129,7 +146,11 @@ async function sync() {
       allRecords(getState()).map((r) => [r.id, JSON.stringify(r)]),
     );
     personalBaseline = JSON.stringify(personal(getState()));
-    status("Saved");
+    status(
+      conflicts.length
+        ? "Updated from a teammate's newer copy: " + conflicts.slice(0, 2).join(", ")
+        : "Saved",
+    );
   } finally {
     running = false;
   }

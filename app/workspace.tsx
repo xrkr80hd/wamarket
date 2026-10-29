@@ -24,6 +24,7 @@ import PersonalWorkspace from "./personal-workspace";
 import Brainstorming from "./brainstorming";
 import PhoneBook from "./phone-book";
 import Messenger from "./messenger-inbox";
+import CopyNotes from "./copy-notes";
 import Library from "./library";
 import UniversalSelection from "./universal-selection";
 import ArchiveRoom from "./archive-room";
@@ -619,12 +620,13 @@ export default function Workspace() {
               [
                 "Overview",
                 "Quick Ideas",
-                "Tasks",
-                "Content Calendar",
-                "Campaigns",
                 "Media Vault",
+                "Campaigns",
+                "Content Calendar",
                 "Video review",
+                "Tasks",
                 "Messenger",
+                "My Workspace",
               ].includes(n),
             )
             .map(([n, I]) => (
@@ -643,8 +645,8 @@ export default function Workspace() {
                       ? "Home"
                       : n === "Content Calendar"
                         ? "Calendar"
-                        : n === "Video production"
-                          ? "Production"
+                        : n === "Quick Ideas"
+                          ? "Brainstorm"
                           : n}
                 </span>
                 {n === "Quick Ideas" && unreadIdeas().length > 0 && (
@@ -656,16 +658,10 @@ export default function Workspace() {
               </button>
             ))}
           <details className="nav-group" key="Create">
-            <summary>Create</summary>
+            <summary>Planning</summary>
             {nav
               .filter(([n]) =>
-                [
-                  "Video production",
-                  "Shot lists",
-                  "Social planner",
-                  "Ideas library",
-                  "Templates",
-                ].includes(n),
+                ["Shot lists", "Social planner"].includes(n),
               )
               .map(([n, I]) => (
                 <button
@@ -697,16 +693,13 @@ export default function Workspace() {
               ))}
           </details>
           <details className="nav-group" key="Organization">
-            <summary>Organization</summary>
+            <summary>More</summary>
             {nav
               .filter(([n]) =>
                 [
-                  "Past Events",
-                  "My Workspace",
                   "Marketing Phone Book",
-                  "IGNITION",
+                  "Past Events",
                   "Reports",
-                  "Review Queue",
                   "Archive",
                 ].includes(n),
               )
@@ -1573,7 +1566,10 @@ export default function Workspace() {
           {page === "Reports" && <Reports />}
           {page === "Archive" && <ArchiveRoom />}
           {page === "Media Vault" && (
-            <Library initialFolder={notificationFolder} />
+            <>
+              <CopyNotes />
+              <Library initialFolder={notificationFolder} />
+            </>
           )}
           {page === "Dealerships" && <Library />}
           {page === "Team & Settings" && <PreviewAdmin />}
