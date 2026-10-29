@@ -701,7 +701,6 @@ export default function Workspace() {
             {nav
               .filter(([n]) =>
                 [
-                  "Dealerships",
                   "Past Events",
                   "My Workspace",
                   "Marketing Phone Book",
@@ -827,7 +826,11 @@ export default function Workspace() {
             </button>
             <ChevronRight size={13} aria-hidden="true" />
             <span aria-current="page">
-              {page === "Overview" ? "Home" : page}
+              {page === "Overview"
+                ? "Home"
+                : page === "Media Vault" || page === "Dealerships"
+                  ? "Assets"
+                  : page}
             </span>
           </nav>
           <div className="header-right" data-tour="shortcuts">
@@ -940,7 +943,7 @@ export default function Workspace() {
                 {page === "Overview"
                   ? user().name + "’s Dashboard"
                   : page === "Media Vault"
-                    ? "Asset Room"
+                    ? "Assets"
                     : page}
               </h1>
               <p>
@@ -949,7 +952,7 @@ export default function Workspace() {
                   : page === "Past Events"
                     ? "Section 24 · A growing history. A head start on what comes next."
                     : page === "Media Vault"
-                      ? "Unassigned media · Audio, Video, Images"
+                      ? "Every store’s files, logos and graphics."
                       : page === "My Workspace"
                         ? "Your quick links, accounts, and daily checks."
                         : page === "Brainstorming"
@@ -1119,7 +1122,7 @@ export default function Workspace() {
               </div>
               <div className="sectionhead">
                 <h2>Across the Walker group</h2>
-                <button onClick={() => go("Dealerships")}>
+                <button onClick={() => go("Media Vault")}>
                   All dealerships <ArrowUpRight size={16} />
                 </button>
               </div>
@@ -1572,7 +1575,7 @@ export default function Workspace() {
           {page === "Media Vault" && (
             <Library initialFolder={notificationFolder} />
           )}
-          {page === "Dealerships" && <Library locationsMode />}
+          {page === "Dealerships" && <Library />}
           {page === "Team & Settings" && <PreviewAdmin />}
           {page === "IGNITION" && (
             <div className="twocol">
